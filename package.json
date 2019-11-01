@@ -1,75 +1,37 @@
 {
-	"name": "vk-io",
-	"version": "4.0.0-rc.15",
-	"description": "Modern VK API SDK for Node.js",
-	"license": "MIT",
-	"author": {
-		"name": "Vladlen (Negezor)",
-		"email": "negezor@gmail.com"
-	},
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/negezor/vk-io.git"
-	},
-	"homepage": "https://github.com/negezor/vk-io#readme",
-	"bugs": "https://github.com/negezor/vk-io/issues",
-	"keywords": [
-		"vk",
-		"api",
-		"sdk",
-		"bot",
-		"node",
-		"js",
-		"es6",
-		"es7"
+	"name": "vk-io-monorepo",
+	"private": true,
+	"workspaces": [
+		"packages/*"
 	],
-	"files": [
-		"lib",
-		"typings"
-	],
-	"main": "lib/index",
-	"module": "lib/index.mjs",
-	"types": "./typings/index.d.ts",
 	"engines": {
 		"node": ">=8.0.0"
 	},
 	"devDependencies": {
-		"@babel/core": "^7.3.4",
-		"@babel/preset-env": "^7.3.4",
-		"@types/node": "^11.11.3",
-		"babel-core": "^7.0.0-0",
-		"babel-eslint": "^10.0.1",
-		"babel-jest": "^24.5.0",
-		"cross-env": "^5.2.0",
-		"eslint": "^5.15.1",
-		"eslint-config-airbnb-base": "^13.1.0",
-		"eslint-plugin-import": "^2.16.0",
-		"jest": "^24.5.0",
-		"rollup": "^1.6.0",
-		"rollup-plugin-babel": "^4.3.2",
-		"rollup-plugin-commonjs": "^9.2.1",
-		"rollup-plugin-json": "^3.1.0",
-		"rollup-plugin-node-resolve": "^4.0.1",
-		"tslint": "^5.14.0",
-		"tslint-config-airbnb": "^5.11.1",
-		"typescript": "^3.3.3333"
-	},
-	"dependencies": {
-		"cheerio": "^1.0.0-rc.2",
-		"debug": "^4.1.1",
-		"middleware-io": "^1.1.0",
-		"node-fetch": "^2.3.0",
-		"sandwich-stream": "^2.0.2",
-		"tough-cookie": "^3.0.1",
-		"ws": "^6.2.0"
+		"@types/jest": "^24.0.20",
+		"@types/node": "^12.11.7",
+		"@typescript-eslint/eslint-plugin": "^2.5.0",
+		"@typescript-eslint/parser": "^2.5.0",
+		"eslint": "^6.6.0",
+		"eslint-config-airbnb-base": "^14.0.0",
+		"eslint-plugin-import": "^2.18.2",
+		"jest": "^24.9.0",
+		"rollup": "^1.26.0",
+		"rollup-plugin-commonjs": "^10.1.0",
+		"rollup-plugin-json": "^4.0.0",
+		"rollup-plugin-node-resolve": "^5.2.0",
+		"rollup-plugin-typescript2": "^0.24.3",
+		"ts-jest": "^24.1.0",
+		"typescript": "^3.6.4"
 	},
 	"scripts": {
 		"prepare": "yarn run rollup:build && yarn run test",
-		"rollup:build": "cross-env NODE_ENV=production rollup -c",
+		"build": "yarn run rollup:build",
+		"watch": "yarn run rollup:watch",
+		"rollup:build": "rollup -c rollup.config.ts",
 		"rollup:watch": "yarn run rollup:build -w",
 		"test": "yarn run test:jest && yarn run test:eslint",
-		"test:jest": "cross-env BABEL_ENV=test jest --config jest.config.json --no-cache",
-		"test:eslint": "eslint ./src --ext .mjs,.js --ignore-path .gitignore .",
-		"test:typings": "tslint typings/index.d.ts"
+		"test:jest": "jest --config jest.config.json --no-cache",
+		"test:eslint": "eslint --ext .ts,.js --ignore-path .gitignore packages/*/src/**/*.{ts,js}"
 	}
 }

@@ -7,7 +7,7 @@ import { MessageContext } from 'vk-io';
 ## Updates
 
 - Событие `message`
-- Возможные подтипы `text`, `doc`, `gift`, `link`, `wall`, `photo`, `video`, `audio`, `market`, `sticker`, `wall_reply`, `market_album`
+- Возможные подтипы `new_message`, `edit_message`
 
 > Обратите внимание
 
@@ -60,6 +60,14 @@ context.hasAttachments([type]); // => boolean
 
 ```js
 context.hasText; // => boolean
+```
+
+## hasReplyMessage
+
+Проверяет наличие сообщения, в ответ на которое отправлено текущее
+
+```js
+context.hasReplyMessage; // => boolean
 ```
 
 ## hasForwards
@@ -222,6 +230,14 @@ context.createdAt; // => number
 context.text; // => ?string
 ```
 
+## replyMessage
+
+Возвращает сообщение, в ответ на которое отправлено текущее
+
+```js
+context.replyMessage; // => MessageReply[]
+```
+
 ## forwards
 
 Возвращает пересланные сообщение
@@ -380,12 +396,12 @@ context.sendSticker(id); // => Promise<number>
 |----------|--------|-----------------------|
 | id       | number | Идентификатор стикера |
 
-## sendPhoto
+## sendPhotos
 
 Отправляет фото в текущий диалог
 
 ```js
-context.sendPhoto(source [, params]); // => Promise<number>
+context.sendPhotos(source [, params]); // => Promise<number>
 ```
 
 | Параметр | Тип    | Описание                                                               |
@@ -394,12 +410,12 @@ context.sendPhoto(source [, params]); // => Promise<number>
 | params   | Object | [Дополнительные параметры сообщения](https://vk.com/dev/messages.send) |
 
 
-## sendDocument
+## sendDocuments
 
 Отправляет документ в текущий диалог
 
 ```js
-context.sendDocument(source [, params]); // => Promise<number>
+context.sendDocuments(source [, params]); // => Promise<number>
 ```
 
 | Параметр | Тип    | Описание                                                               |

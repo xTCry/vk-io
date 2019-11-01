@@ -7,6 +7,7 @@ npm-debug.log*
 node_modules
 
 # Build
-lib
+packages/*/lib
+app.ts
 app.js
 app.mjs
