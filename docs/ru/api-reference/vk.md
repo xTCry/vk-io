@@ -57,14 +57,15 @@ vk.setOptions(options); // => this
 
 ### Опции авторизации
 
-| Опция     | Тип    | Описание                  | По умолчанию |
-|-----------|--------|---------------------------|--------------|
-| appId     | number | Идентификатор приложения  | null         |
-| appSecret | string | Секретный ключ приложения | null         |
-| login     | string | Логин (email)             | null         |
-| phone     | string | Телефон                   | null         |
-| password  | string | Пароль                    | null         |
-| authScope | string | Доступ приложения         | all          |
+| Опция       | Тип    | Описание                  | По умолчанию |
+|-----------  |--------|---------------------------|--------------|
+| appId       | number | Идентификатор приложения  | null         |
+| appSecret   | string | Секретный ключ приложения | null         |
+| login       | string | Логин (email)             | null         |
+| phone       | string | Телефон                   | null         |
+| password    | string | Пароль                    | null         |
+| authScope   | string | Доступ приложения         | null         |
+| authTimeout | number | Время ожидания запроса    | 10000        |
 
 ### Опции запросов к API
 
@@ -73,6 +74,7 @@ vk.setOptions(options); // => this
 | apiMode           | string   | Режим работы API                                                          | sequential                                                              |
 | apiWait           | number   | Время ожидания следующей попытки запроса после ошибки                     | 3000                                                                    |
 | apiLimit          | number   | Количество запрос к API в секунду                                         | 3                                                                       |
+| apiVersion        | string   | Версия VK API                                                             | 5.101                                                                   |
 | apiBaseUrl        | string   | Базовый URL для API                                                       | https://api.vk.com/method                                               |
 | apiAttempts       | number   | Количество попыток повтора запроса после ошибки                           | 3                                                                       |
 | apiTimeout        | number   | Время ожидания запроса                                                    | 10000                                                                   |

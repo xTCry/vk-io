@@ -61,6 +61,38 @@ updates.startWebhook({...}, (req, res) => {
 });
 ```
 
+## start
+Запускает `Polling` или `Webhook` сервер
+
+```js
+updates.start(options); // => Promise
+```
+
+| Параметр | Тип      | Описание          |
+|----------|----------|-------------------|
+| options  | Object   | Опции             |
+
+Опции
+
+| Свойство | Тип    | Описание                                                            |
+|----------|--------|---------------------------------------------------------------------|
+| webhook  | Object | Опции передаваемые в [startWebhook](#startWebhook) |
+
+Если передано свойство `webhook`, то будет запупущен сервер с `Webhook`. Иначе `Polling` с автоматическим определением `pollingGroupId`
+> Для быстрого запуска, стоит передавать опцию `pollingGroupId` заранее
+
+```js
+// Webhook
+updates.start({
+	webhook: {
+		path: '/some-secret'
+	}
+}); // => Promise
+
+// Polling
+updates.start(); // => Promise
+```
+
 ## stop
 Останавливает любое получение обновлений
 
@@ -219,6 +251,36 @@ updates.hear(func, handler);
 updates.hear(
 	(value, context) => {
 		return value.startsWith('!test');
+	},
+	async (context, next) => {...}
+);
+```
+
+Пример использования с объектом условий применяющихся к контексту
+
+```js
+updates.hear(obj, handler);
+```
+
+| Параметр | Тип      | Описание          |
+|----------|----------|-------------------|
+| obj      | Object   | Объект условий    |
+| handler  | Function | Middleware        |
+
+```js
+updates.hear(
+	{
+		isChat: true,
+		// Some for value
+		text: [
+			'one',
+			/two/,
+			text => text === 'three'
+		],
+		// Every for array value
+		'user.permissions': ['visible.that', 'change.that'],
+		// Get value from array
+		'path.to.array[0]': value => isNeedValue(value),
 	},
 	async (context, next) => {...}
 );
