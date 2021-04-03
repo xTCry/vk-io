@@ -1,4 +1,4 @@
-export { default as IScene } from './scene';
-export { default as StepScene } from './step';
+export * from './step.types';
 
-export { StepSceneHandler } from './step.types';
+export { IScene } from './scene';
+export { StepScene } from './step';

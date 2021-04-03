@@ -1,11 +1,7 @@
-import VK from '../../vk';
+import { Attachment, AttachmentFactoryOptions } from './attachment';
 
-import Attachment from './attachment';
-
-import { copyParams } from '../../utils/helpers';
-import { AttachmentType, inspectCustomData } from '../../utils/constants';
-
-const { AUDIO } = AttachmentType;
+import { pickProperties } from '../../utils/helpers';
+import { AttachmentType, kSerializeData } from '../../utils/constants';
 
 export interface IAudioAttachmentPayload {
 	id: number;
@@ -23,18 +19,21 @@ export interface IAudioAttachmentPayload {
 	url?: string;
 }
 
-export default class AudioAttachment extends Attachment<IAudioAttachmentPayload> {
+export type AudioAttachmentOptions =
+	AttachmentFactoryOptions<IAudioAttachmentPayload>;
+
+export class AudioAttachment extends Attachment<IAudioAttachmentPayload, AttachmentType.AUDIO | 'audio'> {
 	/**
 	 * Constructor
 	 */
-	public constructor(payload: IAudioAttachmentPayload, vk?: VK) {
-		super(AUDIO, payload.owner_id, payload.id, payload.access_key);
+	public constructor(options: AudioAttachmentOptions) {
+		super({
+			...options,
 
-		// @ts-ignore
-		this.vk = vk;
-		this.payload = payload;
+			type: AttachmentType.AUDIO
+		});
 
-		this.$filled = 'duration' in payload && 'date' in payload;
+		this.$filled = this.payload.duration !== undefined && this.payload.date !== undefined;
 	}
 
 	/**
@@ -45,16 +44,12 @@ export default class AudioAttachment extends Attachment<IAudioAttachmentPayload>
 			return;
 		}
 
-		// @ts-ignore
-		const [audio] = await this.vk.api.audio.getById({
+		// @ts-expect-error
+		const { items: [audio] } = await this.api.audio.getById({
 			audios: `${this.ownerId}_${this.id}`
 		});
 
-		this.payload = audio;
-
-		if (this.payload.access_key) {
-			this.accessKey = this.payload.access_key;
-		}
+		this.payload = audio as IAudioAttachmentPayload;
 
 		this.$filled = true;
 	}
@@ -62,11 +57,11 @@ export default class AudioAttachment extends Attachment<IAudioAttachmentPayload>
 	/**
 	 * Checks whether audio is in high quality
 	 */
-	public get isHq(): boolean | null {
+	public get isHq(): boolean | undefined {
 		const { is_hq: isHq } = this.payload;
 
 		if (isHq === undefined) {
-			return null;
+			return undefined;
 		}
 
 		return isHq === 1;
@@ -75,68 +70,64 @@ export default class AudioAttachment extends Attachment<IAudioAttachmentPayload>
 	/**
 	 * Returns the ID of the lyric
 	 */
-	public get lyricsId(): number | null {
-		return this.payload.lyrics_id || null;
+	public get lyricsId(): number | undefined {
+		return this.payload.lyrics_id;
 	}
 
 	/**
 	 * Returns the ID of the album
 	 */
-	public get albumId(): number | null {
-		return this.payload.album_id || null;
+	public get albumId(): number | undefined {
+		return this.payload.album_id;
 	}
 
 	/**
 	 * Returns the ID of the genre
 	 */
-	public get genreId(): number | null {
-		return this.payload.genre_id || null;
+	public get genreId(): number | undefined {
+		return this.payload.genre_id;
 	}
 
 	/**
 	 * Returns the title
 	 */
-	public get title(): string | null {
-		return this.payload.title || null;
+	public get title(): string | undefined {
+		return this.payload.title;
 	}
 
 	/**
 	 * Returns the artist
 	 */
-	public get artist(): string | null {
-		return this.payload.artist || null;
+	public get artist(): string | undefined {
+		return this.payload.artist;
 	}
 
 	/**
 	 * Returns the duration
 	 */
-	public get duration(): number | null {
-		if (!this.$filled) {
-			return null;
-		}
-
-		return this.payload.duration!;
+	public get duration(): number | undefined {
+		return this.payload.duration;
 	}
 
 	/**
 	 * Returns the date object when this audio was created
 	 */
-	public get createdAt(): number | null {
-		return this.payload.date || null;
+	public get createdAt(): number | undefined {
+		return this.payload.date;
 	}
 
 	/**
 	 * Returns the URL of the audio
 	 */
-	public get url(): string | null {
-		return this.payload.url || null;
+	public get url(): string | undefined {
+		return this.payload.url;
 	}
 
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'lyricsId',
 			'albumId',
 			'genreId',

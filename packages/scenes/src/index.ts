@@ -1,12 +1,7 @@
-import SceneManager from './scene-manager';
-
 export * from './scenes';
 export * from './contexts';
 
-export { IContext, ISessionContext } from './types';
+export * from './types';
+export * from './scene-manager.types';
 
-export {
-	SceneManager
-};
-
-export default SceneManager;
+export { SceneManager } from './scene-manager';

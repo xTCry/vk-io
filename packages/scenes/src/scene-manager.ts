@@ -1,32 +1,37 @@
-import IScene from './scenes/scene';
+import { IScene } from './scenes/scene';
 
 import { IContext, Middleware } from './types';
 import { SceneContext } from './contexts';
-import CacheRepository from './cache-repository';
+import { CacheRepository } from './cache-repository';
 import { SceneRepository, ISceneManagerOptions } from './scene-manager.types';
 
-export default class SceneManager {
+export class SceneManager {
 	private repository: SceneRepository = new CacheRepository();
 
-	public constructor(rawOptions: ISceneManagerOptions | IScene[] = {}) {
-		const options = Array.isArray(rawOptions)
-			? {
-				scenes: rawOptions
-			}
-			: rawOptions;
+	private sessionKey: string;
 
-		if (options.scenes) {
-			for (const scene of options.scenes) {
-				this.addScene(scene);
-			}
+	public constructor({ scenes, sessionKey = 'session' }: ISceneManagerOptions = {}) {
+		this.sessionKey = sessionKey;
+
+		if (scenes) {
+			this.addScenes(scenes);
 		}
 	}
 
 	/**
-	 * Adds a scene to the shared list
+	 * Checks for has a scene
 	 */
-	public addScene(scene: IScene): this {
-		this.repository.set(scene.slug, scene);
+	public hasScene(slug: string): boolean {
+		return this.repository.has(slug);
+	}
+
+	/**
+	 * Adds scenes to the repository
+	 */
+	public addScenes(scenes: IScene[]): this {
+		for (const scene of scenes) {
+			this.repository.set(scene.slug, scene);
+		}
 
 		return this;
 	}
@@ -38,6 +43,7 @@ export default class SceneManager {
 		return (context: IContext, next: Function): Promise<void> => {
 			context.scene = new SceneContext({
 				context,
+				sessionKey: this.sessionKey,
 				repository: this.repository
 			});
 

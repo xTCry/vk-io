@@ -1,13 +1,29 @@
-import Context, { IContextOptions } from './context';
+import { Params } from '../../api';
 
-import { copyParams } from '../../utils/helpers';
-import { inspectCustomData } from '../../utils/constants';
+import { Context, ContextFactoryOptions, ContextDefaultState } from './context';
 
-const subTypes: Record<string, string> = {
-	10: 'remove_dialog_flags',
-	11: 'update_dialog_flags',
-	12: 'set_dialog_flags'
+import { pickProperties } from '../../utils/helpers';
+import { kSerializeData } from '../../utils/constants';
+
+export type DialogFlagsContextType = 'dialog_flags';
+
+export type DialogFlagsContextSubType =
+'dialog_flags_replace'
+| 'dialog_flags_add'
+| 'dialog_flags_delete';
+
+const subTypes: Record<string, DialogFlagsContextSubType> = {
+	10: 'dialog_flags_delete',
+	11: 'dialog_flags_replace',
+	12: 'dialog_flags_add'
 };
+
+/* eslint-disable no-bitwise */
+enum DialogFlag {
+	IMPORTANT = 1 << 0,
+	UNANSWERED = 1 << 1
+}
+/* eslint-enable no-bitwise */
 
 export interface IDialogFlagsContextPayload {
 	peer_id: number;
@@ -15,11 +31,15 @@ export interface IDialogFlagsContextPayload {
 }
 
 export type DialogFlagsContextOptions<S> =
-	Omit<IContextOptions<number[], S>, 'type' | 'subTypes'>;
+	ContextFactoryOptions<number[], S>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default class DialogFlagsContext<S = Record<string, any>>
-	extends Context<IDialogFlagsContextPayload, S> {
+export class DialogFlagsContext<S = ContextDefaultState>
+	extends Context<
+	IDialogFlagsContextPayload,
+	S,
+	DialogFlagsContextType,
+	DialogFlagsContextSubType
+	> {
 	public constructor(options: DialogFlagsContextOptions<S>) {
 		const [eventId, peerId, flags] = options.payload;
 
@@ -39,19 +59,17 @@ export default class DialogFlagsContext<S = Record<string, any>>
 	}
 
 	/**
-	 * Checks that an important dialogue
+	 * Checks if dialogue is important
 	 */
 	public get isImportant(): boolean {
-		// eslint-disable-next-line no-bitwise
-		return Boolean(this.flags & 1);
+		return this.hasFlag(DialogFlag.IMPORTANT);
 	}
 
 	/**
-	 * Checks that the unanswered dialog
+	 * Checks if the dialog is unanswered
 	 */
 	public get isUnanswered(): boolean {
-		// eslint-disable-next-line no-bitwise
-		return Boolean(this.flags & 2);
+		return this.hasFlag(DialogFlag.UNANSWERED);
 	}
 
 	/**
@@ -71,9 +89,10 @@ export default class DialogFlagsContext<S = Record<string, any>>
 	/**
 	 * Marks the conversation as answered or unchecked
 	 */
-	public markAsAnsweredConversation(params: object): Promise<number> {
-		// @ts-ignore
-		return this.vk.api.messages.markAsAnsweredConversation({
+	public markAsAnsweredConversation(
+		params: Params.MessagesMarkAsAnsweredConversationParams
+	): Promise<number> {
+		return this.api.messages.markAsAnsweredConversation({
 			...params,
 
 			peer_id: this.peerId
@@ -83,20 +102,26 @@ export default class DialogFlagsContext<S = Record<string, any>>
 	/**
 	 * Marks the conversation as important or removes the mark
 	 */
-	public markAsImportantConversation(params: object): Promise<number> {
-		// @ts-ignore
-		return this.vk.api.messages.markAsImportantConversation({
+	public markAsImportantConversation(
+		params: Params.MessagesMarkAsImportantConversationParams
+	): Promise<number> {
+		return this.api.messages.markAsImportantConversation({
 			...params,
 
 			peer_id: this.peerId
 		});
 	}
 
+	protected hasFlag(flag: DialogFlag): boolean {
+		// eslint-disable-next-line no-bitwise
+		return Boolean(this.flags & flag);
+	}
+
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'peerId',
 			'flags',
 			'isImportant',

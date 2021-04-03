@@ -10,5 +10,10 @@ export interface IStepContext extends IContext {
 	};
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type StepSceneHandler<T = {}> = (context: IStepContext & T) => any;
+export type StepSceneHandler<T = {}> = (context: IStepContext & T) => unknown;
+
+export interface IStepSceneOptions<T> {
+	steps: StepSceneHandler<T>[];
+	enterHandler?: StepSceneHandler<T>;
+	leaveHandler?: StepSceneHandler<T>;
+}

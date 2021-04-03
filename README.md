@@ -8,8 +8,8 @@
 
 VK-IO - This is a powerful [Node.js](https://nodejs.org) module that allows you to easily interact with the VK API 🚀
 
-| 📖 [Documentation](docs/) | 🤖 [Examples](docs/examples/) |
-|---------------------------|---------------------------|
+| 📖 [Documentation](https://negezor.github.io/vk-io/) | 🤖 [Examples](docs/examples/) |
+|------------------------------------------------------|--------------------------------|
 
 ## Features
 - 100% coverage of the VKontakte API
@@ -18,13 +18,8 @@ VK-IO - This is a powerful [Node.js](https://nodejs.org) module that allows you 
 - Support for all types of authorization, including via login and password
 - Typings
 
-## Migrating to 4.0.0
-You can read the [migration guide here](Upgrade-RU.md) [RU].
-
-Old version of the library is located [here](https://github.com/negezor/vk-io/tree/v3.2.0).
-
 ## Installation
-> **[Node.js](https://nodejs.org/) 8.0.0 or newer is required**  
+> **[Node.js](https://nodejs.org/) 12.0.0 or newer is required**  
 
 ### Yarn
 Recommended
@@ -59,7 +54,13 @@ run().catch(console.log);
 ## Community
 ### Useful modules that may be useful to you
 
+* [@vk-io/authorization](packages/authorization): Authorization by login & password, and etc... 
+* [@vk-io/streaming](packages/streaming): Receiving data with Streaming API
 * [@vk-io/session](packages/session): Simple implementation of the sessions
 * [@vk-io/scenes](packages/scenes): Simple implementation of middleware-based scene management
+* [@vk-io/hear](packages/hear): Simple implementation of the hears
+* [vk-io-question](https://github.com/fakemancat/vk-io-question): Simple promise-based prompt
+* [vk-io-pages](https://github.com/MrZillaGold/vk-io-pages): Dynamic pages pagination module
+* [henta](https://github.com/u14-team/henta): Simple VK bot engine
 
 > If you want to add your module in the list, create a [new issue](https://github.com/negezor/vk-io/issues/new) in the repository.

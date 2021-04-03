@@ -1,50 +1,71 @@
-import { inspect } from 'util';
+import { inspectable } from 'inspectable';
 
-import VK from '../../vk';
-import { inspectCustomData, UpdateSource } from '../../utils/constants';
+import { API } from '../../api';
+import { Upload } from '../../upload';
+import { kSerializeData, UpdateSource } from '../../utils/constants';
 
-export interface IContextOptions<P, S> {
-	vk: VK;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ContextDefaultState = Record<string, any>;
 
-	type: string;
-	subTypes: string[];
+export interface IContextOptions<
+	P,
+	S,
+	Type extends string = string,
+	SubType extends string = string
+> {
+	api: API;
+	upload: Upload;
+
+	type: Type;
+	subTypes: SubType[];
 
 	payload: P;
 	state?: S;
 
 	source: UpdateSource;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	updateType: any;
+	updateType: string | number;
 
 	groupId?: number;
 }
 
-export default class Context<P = {}, S = {}> {
-	public type: string;
+export type ContextFactoryOptions<P, S> =
+	Omit<IContextOptions<P, S>, 'type' | 'subTypes'>;
 
-	public subTypes: string[];
+export class Context<
+	P = {},
+	S = ContextDefaultState,
+	Type extends string = string,
+	SubType extends string = string
+> {
+	public type: Type;
+
+	public subTypes: SubType[];
 
 	public state: S;
 
-	public vk: VK;
+	protected api: API;
+
+	protected upload: Upload;
 
 	public $groupId?: number;
 
 	protected payload: P;
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	[key: string]: any;
+
 	/**
 	 * Constructor
 	 */
-	public constructor(options: IContextOptions<P, S>) {
-		this.vk = options.vk;
+	public constructor(options: IContextOptions<P, S, Type, SubType>) {
+		this.api = options.api;
+		this.upload = options.upload;
 
 		this.type = options.type;
 		this.subTypes = options.subTypes;
 
 		this.payload = options.payload;
-		// @ts-ignore
-		this.state = options.state || {};
-
+		this.state = options.state || {} as S;
 
 		this.$groupId = options.groupId;
 	}
@@ -59,12 +80,16 @@ export default class Context<P = {}, S = {}> {
 	/**
 	 * Checks whether the context of some of these types
 	 */
-	public is(rawTypes: string | string[]): boolean {
+	public is(rawTypes: (Type | SubType)[]): boolean {
 		const types = !Array.isArray(rawTypes)
 			? [rawTypes]
 			: rawTypes;
 
-		return [this.type, ...this.subTypes].some((type): boolean => (
+		if (types.includes(this.type)) {
+			return true;
+		}
+
+		return this.subTypes.some((type): boolean => (
 			types.includes(type)
 		));
 	}
@@ -74,7 +99,7 @@ export default class Context<P = {}, S = {}> {
 	 */
 	public toJSON(): object {
 		return {
-			...this[inspectCustomData](),
+			...this[kSerializeData](),
 
 			type: this.type,
 			subTypes: this.subTypes,
@@ -85,30 +110,17 @@ export default class Context<P = {}, S = {}> {
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
+	public [kSerializeData](): object {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		const { vk, ...payload } = this;
+		const { api, upload, ...payload } = this;
 
 		return payload;
 	}
-
-	/**
-	 * Custom inspect object
-	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public [inspect.custom](depth: number, options: Record<string, any>): string {
-		const { name } = this.constructor;
-
-		const customData = {
-			...this[inspectCustomData](),
-
-			type: this.type,
-			subTypes: this.subTypes,
-			state: this.state
-		};
-
-		const payload = inspect(customData, { ...options, compact: false });
-
-		return `${options.stylize(name, 'special')} ${payload}`;
-	}
 }
+
+inspectable(Context, {
+	serialize: instance => instance.toJSON(),
+	stringify: (instance, payload, context): string => (
+		`${context.stylize(instance.constructor.name, 'special')} ${context.inspect(payload)}`
+	)
+});

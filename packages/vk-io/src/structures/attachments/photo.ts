@@ -1,11 +1,7 @@
-import VK from '../../vk';
+import { Attachment, AttachmentFactoryOptions } from './attachment';
 
-import Attachment from './attachment';
-
-import { copyParams } from '../../utils/helpers';
-import { AttachmentType, inspectCustomData } from '../../utils/constants';
-
-const { PHOTO } = AttachmentType;
+import { pickProperties } from '../../utils/helpers';
+import { AttachmentType, kSerializeData } from '../../utils/constants';
 
 const SMALL_SIZES = ['m', 's'];
 const MEDIUM_SIZES = ['y', 'r', 'q', 'p', ...SMALL_SIZES];
@@ -32,18 +28,21 @@ export interface IPhotoAttachmentPayload {
 	height?: number;
 }
 
-export default class PhotoAttachment extends Attachment<IPhotoAttachmentPayload> {
+export type PhotoAttachmentOptions =
+	AttachmentFactoryOptions<IPhotoAttachmentPayload>;
+
+export class PhotoAttachment extends Attachment<IPhotoAttachmentPayload, AttachmentType.PHOTO | 'photo'> {
 	/**
 	 * Constructor
 	 */
-	public constructor(payload: IPhotoAttachmentPayload, vk?: VK) {
-		super(PHOTO, payload.owner_id, payload.id, payload.access_key);
+	public constructor(options: PhotoAttachmentOptions) {
+		super({
+			...options,
 
-		// @ts-ignore
-		this.vk = vk;
-		this.payload = payload;
+			type: AttachmentType.PHOTO
+		});
 
-		this.$filled = 'album_id' in payload && 'date' in payload;
+		this.$filled = this.payload.album_id !== undefined && this.payload.date !== undefined;
 	}
 
 	/**
@@ -54,18 +53,12 @@ export default class PhotoAttachment extends Attachment<IPhotoAttachmentPayload>
 			return;
 		}
 
-		// @ts-ignore
-		const [photo] = await this.vk.api.photos.getById({
+		const [photo] = await this.api.photos.getById({
 			photos: `${this.ownerId}_${this.id}`,
 			extended: 0
 		});
 
-		// @ts-ignore
-		this.payload = photo;
-
-		if (this.payload.access_key) {
-			this.accessKey = this.payload.access_key;
-		}
+		this.payload = (photo as unknown) as IPhotoAttachmentPayload;
 
 		this.$filled = true;
 	}
@@ -73,52 +66,52 @@ export default class PhotoAttachment extends Attachment<IPhotoAttachmentPayload>
 	/**
 	 * Returns the ID of the user who uploaded the image
 	 */
-	public get userId(): number | null {
-		return this.payload.user_id || null;
+	public get userId(): number | undefined {
+		return this.payload.user_id;
 	}
 
 	/**
 	 * Returns the ID of the album
 	 */
-	public get albumId(): number | null {
-		return this.payload.album_id || null;
+	public get albumId(): number | undefined {
+		return this.payload.album_id;
 	}
 
 	/**
 	 * Returns the photo text
 	 */
-	public get text(): string | null {
-		return this.payload.text || null;
+	public get text(): string | undefined {
+		return this.payload.text;
 	}
 
 	/**
 	 * Returns the date when this photo was created
 	 */
-	public get createdAt(): number | null {
-		return this.payload.date || null;
+	public get createdAt(): number | undefined {
+		return this.payload.date;
 	}
 
 	/**
 	 * Returns the photo height
 	 */
-	public get height(): number | null {
-		return this.payload.height || null;
+	public get height(): number | undefined {
+		return this.payload.height;
 	}
 
 	/**
 	 * Returns the photo width
 	 */
-	public get width(): number | null {
-		return this.payload.width || null;
+	public get width(): number | undefined {
+		return this.payload.width;
 	}
 
 	/**
 	 * Returns the URL of a small photo
 	 * (130 or 75)
 	 */
-	public get smallPhoto(): string | null {
+	public get smallSizeUrl(): string | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		const [size] = this.getSizes(SMALL_SIZES);
@@ -130,9 +123,9 @@ export default class PhotoAttachment extends Attachment<IPhotoAttachmentPayload>
 	 * Returns the URL of a medium photo
 	 * (807 or 604 or less)
 	 */
-	public get mediumPhoto(): string | null {
+	public get mediumSizeUrl(): string | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		const [size] = this.getSizes(MEDIUM_SIZES);
@@ -144,9 +137,9 @@ export default class PhotoAttachment extends Attachment<IPhotoAttachmentPayload>
 	 * Returns the URL of a large photo
 	 * (2560 or 1280 or less)
 	 */
-	public get largePhoto(): string | null {
+	public get largeSizeUrl(): string | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		const [size] = this.getSizes(LARGE_SIZES);
@@ -157,8 +150,8 @@ export default class PhotoAttachment extends Attachment<IPhotoAttachmentPayload>
 	/**
 	 * Returns the sizes
 	 */
-	public get sizes(): IPhotoSize[] | null {
-		return this.payload.sizes || null;
+	public get sizes(): IPhotoSize[] | undefined {
+		return this.payload.sizes;
 	}
 
 	/**
@@ -171,29 +164,27 @@ export default class PhotoAttachment extends Attachment<IPhotoAttachmentPayload>
 			return [];
 		}
 
-		// @ts-ignore
 		return sizeTypes
-			.map((sizeType): IPhotoSize | null => (
-				sizes.find((size): boolean => size.type === sizeType) || null
+			.map((sizeType): IPhotoSize | undefined => (
+				sizes.find((size): boolean => size.type === sizeType)
 			))
-			.filter(Boolean);
+			.filter(Boolean) as IPhotoSize[];
 	}
 
 	/**
 	 * Returns the custom data
 	 */
-	// @ts-ignore
-	public [inspectCustomData](): object | null {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'userId',
 			'albumId',
 			'text',
 			'createdAt',
 			'height',
 			'width',
-			'smallPhoto',
-			'mediumPhoto',
-			'largePhoto',
+			'smallSizeUrl',
+			'mediumSizeUrl',
+			'largeSizeUrl',
 			'sizes'
 		]);
 	}

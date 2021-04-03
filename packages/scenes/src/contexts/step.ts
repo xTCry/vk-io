@@ -1,8 +1,8 @@
-import { IStepContextOptions } from './step.types';
+import { IStepContextOptions, IStepContextGoOptions } from './step.types';
 import { StepSceneHandler } from '../scenes/step.types';
 import { LastAction } from './scene.types';
 
-export default class StepSceneContext {
+export class StepSceneContext {
 	private context: IStepContextOptions['context'];
 
 	private steps: IStepContextOptions['steps'];
@@ -46,8 +46,8 @@ export default class StepSceneContext {
 	/**
 	 * Returns current handler
 	 */
-	public get current(): StepSceneHandler<{}> | null {
-		return this.steps[this.stepId] || null;
+	public get current(): StepSceneHandler<{}> | undefined {
+		return this.steps[this.stepId];
 	}
 
 	/**
@@ -76,6 +76,26 @@ export default class StepSceneContext {
 	}
 
 	/**
+	 * The go method goes to a specific step
+	 *
+	 * ```ts
+	 * ctx.scene.step.go(3);
+	 * ctx.scene.step.go(3, {
+	 *   silent: true
+	 * });
+	 * ```
+	 */
+	public go(stepId: number, { silent = false }: IStepContextGoOptions = {}): Promise<void> {
+		this.stepId = stepId;
+
+		if (silent) {
+			return Promise.resolve();
+		}
+
+		return this.reenter();
+	}
+
+	/**
 	 * Move to the next handler
 	 *
 	 * ```ts
@@ -85,14 +105,8 @@ export default class StepSceneContext {
 	 * });
 	 * ```
 	 */
-	public async next({ silent = false } = {}): Promise<void> {
-		this.stepId += 1;
-
-		if (silent) {
-			return;
-		}
-
-		await this.reenter();
+	public next(options?: IStepContextGoOptions): Promise<void> {
+		return this.go(this.stepId + 1, options);
 	}
 
 	/**
@@ -105,13 +119,7 @@ export default class StepSceneContext {
 	 * });
 	 * ```
 	 */
-	public async previous({ silent = false } = {}): Promise<void> {
-		this.stepId -= 1;
-
-		if (silent) {
-			return;
-		}
-
-		await this.reenter();
+	public previous(options?: IStepContextGoOptions): Promise<void> {
+		return this.go(this.stepId - 1, options);
 	}
 }

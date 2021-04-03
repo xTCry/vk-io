@@ -1,40 +1,62 @@
-import { inspect } from 'util';
+import { inspectable } from 'inspectable';
 
-import VK from '../../vk';
-import { parseAttachment, inspectCustomData, AttachmentType } from '../../utils/constants';
+import { API } from '../../api';
+import { kSerializeData, AttachmentType } from '../../utils/constants';
 
-export default class Attachment<P = {}> {
-	public type: AttachmentType | string;
+/**
+ * Parse attachments
+ */
+export const parseAttachmentRe = /^([a-z]+)(-?\d+)_(\d+)_?(\w+)?$/;
 
-	public ownerId: number;
+export interface ISharedAttachmentPayload {
+	id: number;
+	owner_id: number;
+	access_key?: string;
+}
 
-	public id: number;
+export interface IAttachmentOptions<P, Type extends string = string> {
+	api: API;
 
-	public accessKey: string | null;
+	type: Type;
+	payload: Partial<ISharedAttachmentPayload> & P;
+}
+
+export type AttachmentFactoryOptions<P> =
+	Omit<IAttachmentOptions<P>, 'type'>;
+
+export class Attachment<P = {}, Type extends string | AttachmentType = string> {
+	public type: Type;
 
 	protected $filled: boolean;
 
-	protected vk!: VK;
+	protected api!: API;
 
-	protected payload!: P;
+	protected payload!: ISharedAttachmentPayload & P;
 
 	/**
 	 * Constructor
 	 */
-	public constructor(
-		type: AttachmentType | string,
-		ownerId: number | string,
-		id: number | string,
-		accessKey: string | null = null
-	) {
-		this.type = type;
+	public constructor(options: IAttachmentOptions<P, Type>) {
+		this.api = options.api;
 
-		this.ownerId = Number(ownerId);
-		this.id = Number(id);
+		this.type = options.type;
 
-		this.accessKey = accessKey;
+		// @ts-expect-error
+		this.payload = options.payload;
 
 		this.$filled = false;
+	}
+
+	public get id(): number {
+		return this.payload.id;
+	}
+
+	public get ownerId(): number {
+		return this.payload.owner_id;
+	}
+
+	public get accessKey(): string | undefined {
+		return this.payload.access_key;
 	}
 
 	/**
@@ -47,14 +69,22 @@ export default class Attachment<P = {}> {
 	/**
 	 * Parse attachment with string
 	 */
-	public static fromString(attachment: string): Attachment {
-		if (!parseAttachment.test(attachment)) {
+	public static fromString(attachment: string, api: API): Attachment {
+		if (!parseAttachmentRe.test(attachment)) {
 			throw new TypeError('Incorrect attachment');
 		}
 
-		const [, type, ownerId, id, accessKey] = attachment.match(parseAttachment)!;
+		const [, type, ownerId, id, accessKey] = attachment.match(parseAttachmentRe)!;
 
-		return new Attachment(type, ownerId, id, accessKey);
+		return new Attachment({
+			api,
+			type,
+			payload: {
+				id: Number(id),
+				owner_id: Number(ownerId),
+				access_key: accessKey
+			}
+		});
 	}
 
 	/**
@@ -77,7 +107,7 @@ export default class Attachment<P = {}> {
 	 */
 	public equals(attachment: Attachment | string): boolean {
 		const target = typeof attachment === 'string'
-			? Attachment.fromString(attachment)
+			? Attachment.fromString(attachment, this.api)
 			: attachment;
 
 		return (
@@ -91,7 +121,7 @@ export default class Attachment<P = {}> {
 	 * Returns a string to attach a VK
 	 */
 	public toString(): string {
-		const accessKey = this.accessKey !== null
+		const accessKey = this.accessKey !== undefined
 			? `_${this.accessKey}`
 			: '';
 
@@ -102,37 +132,28 @@ export default class Attachment<P = {}> {
 	 * Returns data for JSON
 	 */
 	public toJSON(): object {
-		return this[inspectCustomData]();
+		return {
+			id: this.id,
+			ownerId: this.ownerId,
+			accessKey: this.accessKey,
+
+			...this[kSerializeData]()
+		};
 	}
 
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
+	public [kSerializeData](): object {
 		return {
 			payload: this.payload
 		};
 	}
-
-	/**
-	 * Custom inspect object
-	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public [inspect.custom](depth: number, options: Record<string, any>): string {
-		const { name } = this.constructor;
-
-		const customData = {
-			id: this.id,
-			ownerId: this.ownerId,
-			accessKey: this.accessKey,
-
-			...this[inspectCustomData]()
-		};
-
-		const payload = this.$filled
-			? `${inspect(customData, { ...options, compact: false })}`
-			: '{}';
-
-		return `${options.stylize(name, 'special')} <${options.stylize(this, 'string')}> ${payload}`;
-	}
 }
+
+inspectable(Attachment, {
+	serialize: (instance) => instance.toJSON(),
+	stringify: (instance, payload, context): string => (
+		`${context.stylize(instance.constructor.name, 'special')} <${context.stylize(String(instance), 'string')}> ${context.inspect(payload)}`
+	)
+});

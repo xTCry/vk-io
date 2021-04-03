@@ -1,2 +1,2 @@
-export { default as PollingTransport } from './polling';
-export { default as WebhookTransport } from './webhook';
+export * from './polling';
+export * from './webhook';

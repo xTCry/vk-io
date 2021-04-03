@@ -2,24 +2,37 @@ import { URLSearchParams } from 'url';
 
 import {
 	ButtonColor,
+	ButtonPayload,
 	KeyboardButton,
 
 	IKeyboardTextButtonOptions,
+	IKeyboardURLButtonOptions,
 	IKeyboardLocationRequestButtonOptions,
 	IKeyboardVKPayButtonOptions,
-	IKeyboardApplicationButtonOptions
+	IKeyboardApplicationButtonOptions,
+	IKeyboardCallbackButtonOptions
 } from './types';
 
-export default class KeyboardBuilder {
+const serializePayload = (rawPayload: ButtonPayload): string => {
+	const payload = JSON.stringify(rawPayload);
+
+	if (payload.length > 255) {
+		throw new RangeError('Maximum length of payload 255 characters');
+	}
+
+	return payload;
+};
+
+export class KeyboardBuilder {
 	/**
 	 * Does the keyboard close after pressing the button
 	 */
-	protected isOneTime = false;
+	public isOneTime = false;
 
 	/**
 	 * The keyboard must be attached to the message
 	 */
-	protected isInline = false;
+	public isInline = false;
 
 	/**
 	 * Rows with all buttons
@@ -61,11 +74,7 @@ export default class KeyboardBuilder {
 			throw new RangeError('Maximum length of label 40 characters');
 		}
 
-		const payload = JSON.stringify(rawPayload);
-
-		if (payload.length > 255) {
-			throw new RangeError('Maximum length of payload 255 characters');
-		}
+		const payload = serializePayload(rawPayload);
 
 		return this.addButton({
 			color,
@@ -74,6 +83,38 @@ export default class KeyboardBuilder {
 				payload,
 
 				type: 'text'
+			}
+		});
+	}
+
+	/**
+	 * URL button
+	 *
+	 * ```ts
+	 * builder.urlButton({
+	 *  label: 'Buy a coffee',
+	 *  url: 'https://coffee.mania/buy'
+	 * });
+	 * ```
+	 */
+	public urlButton({
+		label,
+		url,
+		payload: rawPayload = {}
+	}: IKeyboardURLButtonOptions): this {
+		if (label.length > 40) {
+			throw new RangeError('Maximum length of label 40 characters');
+		}
+
+		const payload = serializePayload(rawPayload);
+
+		return this.addWideButton({
+			action: {
+				label,
+				payload,
+
+				link: url,
+				type: 'open_link'
 			}
 		});
 	}
@@ -92,11 +133,7 @@ export default class KeyboardBuilder {
 	public locationRequestButton({
 		payload: rawPayload = {}
 	}: IKeyboardLocationRequestButtonOptions): this {
-		const payload = JSON.stringify(rawPayload);
-
-		if (payload.length > 255) {
-			throw new RangeError('Maximum length of payload 255 characters');
-		}
+		const payload = serializePayload(rawPayload);
 
 		return this.addWideButton({
 			action: {
@@ -169,6 +206,42 @@ export default class KeyboardBuilder {
 	}
 
 	/**
+	 * Allows without sending a message from the user
+	 * to receive a notification of a button click and perform the necessary action
+	 *
+	 * ```ts
+	 * builder.callbackButton({
+	 *  label: 'Buy a coffee',
+	 *  payload: {
+	 *   command: 'buy',
+	 *   item: 'coffee'
+	 *  }
+	 * });
+	 * ```
+	 */
+	public callbackButton({
+		label,
+		payload: rawPayload = {},
+		color = ButtonColor.SECONDARY
+	}: IKeyboardCallbackButtonOptions): this {
+		if (label.length > 40) {
+			throw new RangeError('Maximum length of label 40 characters');
+		}
+
+		const payload = serializePayload(rawPayload);
+
+		return this.addButton({
+			color,
+			action: {
+				label,
+				payload,
+
+				type: 'callback'
+			}
+		});
+	}
+
+	/**
 	 * Saves the current row of buttons in the general rows
 	 */
 	public row(): this {
@@ -176,12 +249,8 @@ export default class KeyboardBuilder {
 			return this;
 		}
 
-		const maxColumnLength = this.isInline
-			? 3
-			: 4;
-
-		if (this.currentRow.length > maxColumnLength) {
-			throw new RangeError(`Max count of buttons at columns ${maxColumnLength}`);
+		if (this.currentRow.length > 5) {
+			throw new RangeError('Max count of buttons at columns 5');
 		}
 
 		this.rows.push(this.currentRow);
@@ -241,7 +310,7 @@ export default class KeyboardBuilder {
 	 */
 	public toString(): string {
 		const maxRowsLength = this.isInline
-			? 3
+			? 6
 			: 10;
 
 		if (this.rows.length > maxRowsLength) {
@@ -278,12 +347,16 @@ export default class KeyboardBuilder {
 	 * Adds a wide button to the new row
 	 */
 	protected addWideButton(button: KeyboardButton): this {
-		if (this.currentRow.length !== 0) {
+		if (this.currentRow.length >= 2) {
 			this.row();
 		}
 
 		this.addButton(button);
 
-		return this.row();
+		if (this.currentRow.length === 2) {
+			this.row();
+		}
+
+		return this;
 	}
 }

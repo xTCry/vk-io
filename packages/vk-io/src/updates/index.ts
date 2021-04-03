@@ -1,3 +1,3 @@
-import Updates from './updates';
+export * from './transports';
 
-export default Updates;
+export * from './updates';

@@ -1,44 +1,52 @@
-import VK from '../../vk';
+import { ExternalAttachment, ExternalAttachmentFactoryOptions } from './external';
 
-import ExternalAttachment from './external';
-
-import PhotoAttachment, { IPhotoAttachmentPayload } from './photo';
-import { copyParams } from '../../utils/helpers';
-import { AttachmentType, inspectCustomData } from '../../utils/constants';
-
-const { LINK } = AttachmentType;
+import { pickProperties } from '../../utils/helpers';
+import { PhotoAttachment, IPhotoAttachmentPayload } from './photo';
+import { AttachmentType, kSerializeData } from '../../utils/constants';
 
 const kPhoto = Symbol('kPhoto');
 
 export interface ILinkAttachmentPayload {
 	title: string;
-	caption: string | null;
-	description: string | null;
+	caption?: string;
+	description?: string;
 	url: string;
-	product: {
+	product?: {
 		price: object;
-	} | null;
-	button: {
+	};
+	button?: {
 		title: string;
 		action: {
 			type: string;
 			url: string;
 		};
-	} | null;
-	photo: IPhotoAttachmentPayload | null;
+	};
+	photo?: IPhotoAttachmentPayload;
 }
 
-export default class LinkAttachment extends ExternalAttachment<ILinkAttachmentPayload> {
-	protected [kPhoto]: PhotoAttachment | null;
+export type LinkAttachmentOptions =
+	ExternalAttachmentFactoryOptions<ILinkAttachmentPayload>;
+
+export class LinkAttachment
+	extends ExternalAttachment<ILinkAttachmentPayload, AttachmentType.LINK | 'link'> {
+	protected [kPhoto]: PhotoAttachment | undefined;
 
 	/**
 	 * Constructor
 	 */
-	public constructor(payload: ILinkAttachmentPayload, vk?: VK) {
-		super(LINK, payload);
+	public constructor(options: LinkAttachmentOptions) {
+		super({
+			...options,
 
-		// @ts-ignore
-		this.vk = vk;
+			type: AttachmentType.LINK
+		});
+
+		if (this.payload.photo) {
+			this[kPhoto] = new PhotoAttachment({
+				api: this.api,
+				payload: this.payload.photo
+			});
+		}
 	}
 
 	/**
@@ -58,15 +66,15 @@ export default class LinkAttachment extends ExternalAttachment<ILinkAttachmentPa
 	/**
 	 * Returns the title
 	 */
-	public get caption(): string | null {
-		return this.payload.caption || null;
+	public get caption(): string | undefined {
+		return this.payload.caption;
 	}
 
 	/**
 	 * Returns the description
 	 */
-	public get description(): string | null {
-		return this.payload.description || null;
+	public get description(): string | undefined {
+		return this.payload.description;
 	}
 
 	/**
@@ -79,43 +87,29 @@ export default class LinkAttachment extends ExternalAttachment<ILinkAttachmentPa
 	/**
 	 * Returns the product
 	 */
-	public get product(): {
-		price: object;
-	} | null {
+	public get product(): ILinkAttachmentPayload['product'] | undefined {
 		return this.payload.product;
 	}
 
 	/**
 	 * Returns the button
 	 */
-	public get button(): {
-		title: string;
-		action: {
-			type: string;
-			url: string;
-		};
-	} | null {
-		return this.payload.button || null;
+	public get button(): ILinkAttachmentPayload['button'] | undefined {
+		return this.payload.button;
 	}
 
 	/**
 	 * Returns the photo
 	 */
-	public get photo(): PhotoAttachment | null {
-		if (!this[kPhoto]) {
-			this[kPhoto] = this.payload.photo
-				? new PhotoAttachment(this.payload.photo, this.vk)
-				: null;
-		}
-
+	public get photo(): PhotoAttachment | undefined {
 		return this[kPhoto];
 	}
 
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'title',
 			'caption',
 			'description',

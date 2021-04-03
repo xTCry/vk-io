@@ -1,9 +1,10 @@
-import Context, { IContextOptions } from './context';
+import { Params } from '../../api';
+import { Context, ContextFactoryOptions, ContextDefaultState } from './context';
 
 import { VKError } from '../../errors';
 
-import { copyParams } from '../../utils/helpers';
-import { inspectCustomData } from '../../utils/constants';
+import { pickProperties } from '../../utils/helpers';
+import { kSerializeData } from '../../utils/constants';
 
 /**
  * Causes of blocking
@@ -16,10 +17,11 @@ const reasonNames = new Map([
 	[4, 'messages_off_topic']
 ]);
 
-const subTypes: Record<string, string> = {
-	user_block: 'block_group_user',
-	user_unblock: 'unblock_group_user'
-};
+export type GroupUserContextType = 'group_user';
+
+export type GroupUserContextSubType =
+'user_block'
+| 'user_unblock';
 
 export interface IGroupUserContextPayload {
 	admin_id: number;
@@ -31,18 +33,22 @@ export interface IGroupUserContextPayload {
 }
 
 export type GroupUserContextOptions<S> =
-	Omit<IContextOptions<IGroupUserContextPayload, S>, 'type' | 'subTypes'>;
+	ContextFactoryOptions<IGroupUserContextPayload, S>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default class GroupUserContext<S = Record<string, any>>
-	extends Context<IGroupUserContextPayload, S> {
+export class GroupUserContext<S = ContextDefaultState>
+	extends Context<
+	IGroupUserContextPayload,
+	S,
+	GroupUserContextType,
+	GroupUserContextSubType
+	> {
 	public constructor(options: GroupUserContextOptions<S>) {
 		super({
 			...options,
 
 			type: 'group_user',
 			subTypes: [
-				subTypes[options.updateType]
+				options.updateType as GroupUserContextSubType
 			]
 		});
 	}
@@ -51,22 +57,22 @@ export default class GroupUserContext<S = Record<string, any>>
 	 * Checks is join user
 	 */
 	public get isBlocked(): boolean {
-		return this.subTypes.includes('block_group_user');
+		return this.subTypes.includes('user_block');
 	}
 
 	/**
 	 * Checks is leave user
 	 */
 	public get isUnblocked(): boolean {
-		return this.subTypes.includes('unblock_group_user');
+		return this.subTypes.includes('user_unblock');
 	}
 
 	/**
 	 * Checks that the block has expired
 	 */
-	public get isExpired(): boolean | null {
+	public get isExpired(): boolean | undefined {
 		if (this.isBlocked) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.by_end_date);
@@ -89,36 +95,35 @@ export default class GroupUserContext<S = Record<string, any>>
 	/**
 	 * Returns the reason for the ban
 	 */
-	public get reasonId(): number | null {
-		return this.payload.reason || null;
+	public get reasonId(): number | undefined {
+		return this.payload.reason;
 	}
 
 	/**
 	 * Returns the reason name for the ban
 	 */
-	public get reasonName(): string | null {
-		// @ts-ignore
-		return reasonNames.get(this.reasonId);
+	public get reasonName(): string | undefined {
+		return reasonNames.get(this.reasonId!);
 	}
 
 	/**
-	 * Returns the unblock date or null if permanent
+	 * Returns the unblock date or undefined if permanent
 	 */
-	public get unblockAt(): number | null {
-		return this.payload.unblock_date || null;
+	public get unblockAt(): number | undefined {
+		return this.payload.unblock_date;
 	}
 
 	/**
 	 * Returns the administrator comment to block
 	 */
-	public get comment(): string | null {
-		return this.payload.comment || null;
+	public get comment(): string | undefined {
+		return this.payload.comment;
 	}
 
 	/**
 	 * Adds a user to the community blacklist
 	 */
-	ban(params: object): Promise<number> {
+	ban(params: Partial<Params.GroupsBanParams>): Promise<number> {
 		if (this.isBlocked) {
 			return Promise.reject(new VKError({
 				message: 'User is blocked',
@@ -126,8 +131,7 @@ export default class GroupUserContext<S = Record<string, any>>
 			}));
 		}
 
-		// @ts-ignore
-		return this.vk.api.groups.ban({
+		return this.api.groups.ban({
 			...params,
 
 			group_id: this.$groupId!,
@@ -146,8 +150,7 @@ export default class GroupUserContext<S = Record<string, any>>
 			}));
 		}
 
-		// @ts-ignore
-		return this.vk.api.groups.unban({
+		return this.api.groups.unban({
 			group_id: this.$groupId!,
 			user_id: this.userId
 		});
@@ -156,8 +159,8 @@ export default class GroupUserContext<S = Record<string, any>>
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'adminId',
 			'userId',
 			'reasonId',

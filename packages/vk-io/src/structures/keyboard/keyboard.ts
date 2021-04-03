@@ -1,31 +1,22 @@
-import KeyboardBuilder from './builder';
+import { KeyboardBuilder } from './builder';
 import {
 	IKeyboardProxyButton,
 	IKeyboardTextButtonOptions,
+	IKeyboardURLButtonOptions,
 	IKeyboardLocationRequestButtonOptions,
 	IKeyboardVKPayButtonOptions,
 	IKeyboardApplicationButtonOptions,
+	IKeyboardCallbackButtonOptions,
+
 	ButtonColor
 } from './types';
-import { showDeprecatedMessage } from '../../utils/helpers';
 
-export default class Keyboard {
+export class Keyboard {
 	/**
 	 * Returns custom tag
 	 */
 	public get [Symbol.toStringTag](): string {
 		return this.constructor.name;
-	}
-
-	/**
-	 * @deprecated Use Keyboard.SECONDARY_COLOR instead
-	 */
-	// eslint-disable-next-line class-methods-use-this
-	public static get DEFAULT_COLOR(): ButtonColor.SECONDARY {
-		// eslint-disable-next-line no-console
-		showDeprecatedMessage('Keyboard.DEFAULT_COLOR deprecated, use Keyboard.SECONDARY_COLOR instead');
-
-		return ButtonColor.SECONDARY;
 	}
 
 	/**
@@ -93,6 +84,12 @@ export default class Keyboard {
 					continue;
 				}
 
+				if (kind === 'url') {
+					builder.urlButton(options as IKeyboardURLButtonOptions);
+
+					continue;
+				}
+
 				if (kind === 'location_request') {
 					builder.locationRequestButton(options as IKeyboardLocationRequestButtonOptions);
 
@@ -107,6 +104,12 @@ export default class Keyboard {
 
 				if (kind === 'vk_application') {
 					builder.applicationButton(options as IKeyboardApplicationButtonOptions);
+
+					continue;
+				}
+
+				if (kind === 'callback') {
+					builder.callbackButton(options as IKeyboardCallbackButtonOptions);
 
 					continue;
 				}
@@ -127,6 +130,15 @@ export default class Keyboard {
 		options: IKeyboardTextButtonOptions
 	): IKeyboardProxyButton {
 		return { options, kind: 'text' };
+	}
+
+	/**
+	 * URL button
+	 */
+	public static urlButton(
+		options: IKeyboardURLButtonOptions
+	): IKeyboardProxyButton {
+		return { options, kind: 'url' };
 	}
 
 	/**
@@ -154,5 +166,15 @@ export default class Keyboard {
 		options: IKeyboardApplicationButtonOptions
 	): IKeyboardProxyButton {
 		return { options, kind: 'vk_application' };
+	}
+
+	/**
+	 * Allows without sending a message from the user
+	 * to receive a notification of a button click and perform the necessary action
+	 */
+	public static callbackButton(
+		options: IKeyboardCallbackButtonOptions
+	): IKeyboardProxyButton {
+		return { options, kind: 'callback' };
 	}
 }

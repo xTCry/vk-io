@@ -9,7 +9,6 @@ const ts = require('typescript');
 const createPrinter = require('./printer');
 const {
 	TypesGenerator,
-	ClassGenerator,
 	InterfaceGenerator
 } = require('./generators');
 
@@ -30,6 +29,7 @@ const METHODS_FILE = 'methods.ts';
 const PARAMS_FILE = 'params.ts';
 const OBJECTS_FILE = 'objects.ts';
 const RESPONSES_FILE = 'responses.ts';
+const CONSTANTS_FILE = 'constants.ts';
 
 const typeingsDir = '../../packages/vk-io/src/api/schemas';
 
@@ -37,17 +37,20 @@ async function generate() {
 	const [
 		{ methods },
 		{ definitions: responses },
-		{ definitions: objects }
+		{ definitions: objects },
+		{ errors }
 	] = await Promise.all([
 		readJSONFile('./schemas/methods.json'),
 		readJSONFile('./schemas/responses.json'),
-		readJSONFile('./schemas/objects.json')
+		readJSONFile('./schemas/objects.json'),
+		readJSONFile('./schemas/errors.json')
 	]);
 
 	const { writeNode: writeMethodsNode } = createPrinter(`${typeingsDir}/${METHODS_FILE}`);
 	const { writeNode: writeParamsNode } = createPrinter(`${typeingsDir}/${PARAMS_FILE}`);
 	const { writeNode: writeResponsesNode } = createPrinter(`${typeingsDir}/${RESPONSES_FILE}`);
 	const { writeNode: writeObjectsNode } = createPrinter(`${typeingsDir}/${OBJECTS_FILE}`);
+	const { writeNode: writeConstantsNode } = createPrinter(`${typeingsDir}/${CONSTANTS_FILE}`);
 
 	const paramsIdentifier = ts.createIdentifier('Params');
 	const objectsIdentifier = ts.createIdentifier('Objects');
@@ -226,7 +229,33 @@ async function generate() {
 		);
 	}
 
-	const apiMethodsClass = new ClassGenerator({
+	// writeConstantsNode
+
+	writeConstantsNode(
+		TypesGenerator.declarationExport(
+			ts.createEnumDeclaration(
+				undefined,
+				undefined,
+				'APIErrorCode',
+				Object.entries(errors)
+					.map(([name, info]) => (
+						ts.addSyntheticLeadingComment(
+							ts.createEnumMember(
+								name.substring(10).toUpperCase(),
+								ts.createNumericLiteral(
+									String(info.code)
+								)
+							),
+							ts.SyntaxKind.MultiLineCommentTrivia,
+							formatTSComments(`${info.description}\n\nCode: \`${info.code}\``),
+							true
+						)
+					))
+			)
+		)
+	);
+
+	const apiMethodsInterface = new InterfaceGenerator({
 		name: 'APIMethods'
 	});
 
@@ -237,7 +266,7 @@ async function generate() {
 			})
 		);
 
-		apiMethodsClass.addProperty({
+		apiMethodsInterface.addProperty({
 			name,
 			type: group.name,
 			description: group.description,
@@ -254,7 +283,7 @@ async function generate() {
 	}
 
 	writeMethodsNode(
-		apiMethodsClass.toASTNode({
+		apiMethodsInterface.toASTNode({
 			exported: true
 		})
 	);

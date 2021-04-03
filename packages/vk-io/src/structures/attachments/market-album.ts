@@ -1,10 +1,7 @@
-import VK from '../../vk';
-
-import Attachment from './attachment';
+import { Attachment, AttachmentFactoryOptions } from './attachment';
 
 import { AttachmentType } from '../../utils/constants';
-
-const { MARKET_ALBUM } = AttachmentType;
+import { PhotoAttachment, IPhotoAttachmentPayload } from './photo';
 
 export interface IMarketAlbumAttachmentPayload {
 	id: number;
@@ -12,23 +9,30 @@ export interface IMarketAlbumAttachmentPayload {
 	access_key?: string;
 
 	title?: string;
-	photo?: object;
+	photo?: IPhotoAttachmentPayload;
 	count?: number;
 	updated_time?: number;
 }
+export type MarketAlbumAttachmentOptions =
+	AttachmentFactoryOptions<IMarketAlbumAttachmentPayload>;
 
-export default class MarketAlbumAttachment extends Attachment<IMarketAlbumAttachmentPayload> {
+export class MarketAlbumAttachment
+	extends Attachment<IMarketAlbumAttachmentPayload, AttachmentType.MARKET_ALBUM | 'market_album'> {
+	public photo?: PhotoAttachment;
+
 	/**
 	 * Constructor
 	 */
-	public constructor(payload: IMarketAlbumAttachmentPayload, vk?: VK) {
-		super(MARKET_ALBUM, payload.owner_id, payload.id, payload.access_key);
+	public constructor(options: MarketAlbumAttachmentOptions) {
+		super({
+			...options,
 
-		// @ts-ignore
-		this.vk = vk;
-		this.payload = payload;
+			type: AttachmentType.MARKET_ALBUM
+		});
 
-		this.$filled = 'title' in payload && 'updated_time' in payload;
+		this.$filled = this.payload.title !== undefined && this.payload.updated_time !== undefined;
+
+		this.applyPayload(options.payload);
 	}
 
 	/**
@@ -39,18 +43,48 @@ export default class MarketAlbumAttachment extends Attachment<IMarketAlbumAttach
 			return;
 		}
 
-		// @ts-ignore
-		const [album] = await this.vk.api.market.getAlbumById({
+		const { items } = await this.api.market.getAlbumById({
 			owner_id: this.ownerId,
 			album_ids: this.id
 		});
 
-		this.payload = album;
-
-		if (this.payload.access_key) {
-			this.accessKey = this.payload.access_key;
-		}
-
 		this.$filled = true;
+
+		this.applyPayload(items![0] as IMarketAlbumAttachmentPayload);
+	}
+
+	/**
+	 * Returns album title
+	 */
+	get title(): string | undefined {
+		return this.payload.title;
+	}
+
+	/**
+	 * Returns count of products in the album
+	 */
+	get count(): number | undefined {
+		return this.payload.count;
+	}
+
+	/**
+	 * Returns the date when this album was updated
+	 */
+	get updatedAt(): number | undefined {
+		return this.payload.updated_time;
+	}
+
+	/**
+	 * Applies the payload
+	 */
+	private applyPayload(payload: IMarketAlbumAttachmentPayload): void {
+		this.payload = payload;
+
+		if (this.payload.photo) {
+			this.photo = new PhotoAttachment({
+				api: this.api,
+				payload: this.payload.photo
+			});
+		}
 	}
 }

@@ -1,10 +1,13 @@
 const { VK, Keyboard } = require('vk-io');
+const { HearManager } = require('@vk-io/hear');
 
 const vk = new VK({
 	token: process.env.TOKEN
 });
 
-vk.updates.on('message', (context, next) => {
+const hearManager = new HearManager();
+
+vk.updates.on('message_new', (context, next) => {
 	const { messagePayload } = context;
 
 	context.state.command = messagePayload && messagePayload.command
@@ -13,6 +16,8 @@ vk.updates.on('message', (context, next) => {
 
 	return next();
 });
+
+vk.updates.on('message_new', hearManager.middleware);
 
 // Simple wrapper for commands
 const hearCommand = (name, conditions, handle) => {
@@ -25,7 +30,7 @@ const hearCommand = (name, conditions, handle) => {
 		conditions = [conditions];
 	}
 
-	vk.updates.hear(
+	hearManager.hear(
 		[
 			(text, { state }) => (
 				state.command === name
@@ -81,10 +86,10 @@ hearCommand('help', async (context) => {
 			})
 			.textButton({
 				label: 'Cat purring',
-					payload: {
-						command: 'purr'
-					},
-					color: Keyboard.PRIMARY_COLOR
+				payload: {
+					command: 'purr'
+				},
+				color: Keyboard.PRIMARY_COLOR
 			})
 	});
 });
@@ -93,7 +98,9 @@ hearCommand('cat', async (context) => {
 	await Promise.all([
 		context.send('Wait for the uploads awesome 😻'),
 
-		context.sendPhotos('https://loremflickr.com/400/300/')
+		context.sendPhotos({
+			value: 'https://loremflickr.com/400/300/'
+		})
 	]);
 });
 
@@ -113,7 +120,9 @@ hearCommand('purr', async (context) => {
 	await Promise.all([
 		context.send('Wait for the uploads purring 😻'),
 
-		context.sendAudioMessage(link)
+		context.sendAudioMessage({
+			value: link
+		})
 	]);
 });
 

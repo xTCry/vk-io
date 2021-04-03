@@ -1,12 +1,13 @@
-import Context, { IContextOptions } from './context';
+import { Context, ContextFactoryOptions, ContextDefaultState } from './context';
 
-import { copyParams } from '../../utils/helpers';
-import { inspectCustomData } from '../../utils/constants';
+import { pickProperties } from '../../utils/helpers';
+import { kSerializeData } from '../../utils/constants';
 
-const subTypes: Record<string, string> = {
-	group_leave: 'leave_group_member',
-	group_join: 'join_group_member'
-};
+export type GroupMemberContextType = 'group_member';
+
+export type GroupMemberContextSubType =
+'group_leave'
+| 'group_join';
 
 export interface IGroupMemberContextPayload {
 	user_id: number;
@@ -15,18 +16,22 @@ export interface IGroupMemberContextPayload {
 }
 
 export type GroupMemberContextOptions<S> =
-	Omit<IContextOptions<IGroupMemberContextPayload, S>, 'type' | 'subTypes'>;
+	ContextFactoryOptions<IGroupMemberContextPayload, S>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default class GroupMemberContext<S = Record<string, any>>
-	extends Context<IGroupMemberContextPayload, S> {
+export class GroupMemberContext<S = ContextDefaultState>
+	extends Context<
+	IGroupMemberContextPayload,
+	S,
+	GroupMemberContextType,
+	GroupMemberContextSubType
+	> {
 	public constructor(options: GroupMemberContextOptions<S>) {
 		super({
 			...options,
 
 			type: 'group_member',
 			subTypes: [
-				subTypes[options.updateType]
+				options.updateType as GroupMemberContextSubType
 			]
 		});
 	}
@@ -35,22 +40,22 @@ export default class GroupMemberContext<S = Record<string, any>>
 	 * Checks is join user
 	 */
 	public get isJoin(): boolean {
-		return this.subTypes.includes('join_group_member');
+		return this.subTypes.includes('group_join');
 	}
 
 	/**
 	 * Checks is leave user
 	 */
 	public get isLeave(): boolean {
-		return this.subTypes.includes('leave_group_member');
+		return this.subTypes.includes('group_leave');
 	}
 
 	/**
 	 * Checks is self leave user
 	 */
-	public get isSelfLeave(): boolean | null {
+	public get isSelfLeave(): boolean | undefined {
 		if (this.isJoin) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.self);
@@ -66,9 +71,9 @@ export default class GroupMemberContext<S = Record<string, any>>
 	/**
 	 * Returns the join type
 	 */
-	public get joinType(): string | null {
+	public get joinType(): string | undefined {
 		if (this.isLeave) {
-			return null;
+			return undefined;
 		}
 
 		return this.payload.join_type!;
@@ -77,8 +82,8 @@ export default class GroupMemberContext<S = Record<string, any>>
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'userId',
 			'joinType',
 			'isJoin',

@@ -1,6 +1,6 @@
 {
 	"name": "vk-io",
-	"version": "4.0.0-rc.25",
+	"version": "4.1.4",
 	"description": "Modern VK API SDK for Node.js",
 	"license": "MIT",
 	"author": {
@@ -9,7 +9,8 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/negezor/vk-io.git"
+		"url": "git+https://github.com/negezor/vk-io.git",
+		"directory": "packages/vk-io"
 	},
 	"homepage": "https://github.com/negezor/vk-io#readme",
 	"bugs": "https://github.com/negezor/vk-io/issues",
@@ -30,19 +31,18 @@
 	"module": "lib/index.mjs",
 	"types": "./lib/index.d.ts",
 	"engines": {
-		"node": ">=8.0.0"
+		"node": ">=12.0.0"
 	},
 	"devDependencies": {
-		"@types/node": "^12.11.7",
-		"@types/tough-cookie": "^2.3.5"
+		"@types/debug": "^4.1.5",
+		"@types/node-fetch": "^2.5.8"
 	},
 	"dependencies": {
-		"cheerio": "^1.0.0-rc.3",
-		"debug": "^4.1.1",
-		"middleware-io": "^2.1.0",
-		"node-fetch": "^2.6.0",
-		"sandwich-stream": "^2.0.2",
-		"tough-cookie": "^3.0.1",
-		"ws": "^7.1.2"
+		"abort-controller": "^3.0.0",
+		"debug": "^4.3.1",
+		"form-data": "^3.0.0",
+		"inspectable": "^1.1.0",
+		"middleware-io": "^2.5.0",
+		"node-fetch": "^2.6.1"
 	}
 }

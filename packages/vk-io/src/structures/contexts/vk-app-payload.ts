@@ -1,7 +1,11 @@
-import Context, { IContextOptions } from './context';
+import { Context, ContextFactoryOptions, ContextDefaultState } from './context';
 
-import { copyParams } from '../../utils/helpers';
-import { inspectCustomData } from '../../utils/constants';
+import { pickProperties } from '../../utils/helpers';
+import { kSerializeData } from '../../utils/constants';
+
+export type VKAppPayloadContextType = 'vk_app_event';
+
+export type VKAppPayloadContextSubType = 'app_payload';
 
 export interface IVKAppPayloadPayload {
 	user_id: number;
@@ -12,17 +16,23 @@ export interface IVKAppPayloadPayload {
 }
 
 export type VKAppPayloadContextOptions<S> =
-	Omit<IContextOptions<IVKAppPayloadPayload, S>, 'type' | 'subTypes'>;
+	ContextFactoryOptions<IVKAppPayloadPayload, S>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default class VKAppPayloadContext<S = Record<string, any>>
-	extends Context<IVKAppPayloadPayload, S> {
+export class VKAppPayloadContext<S = ContextDefaultState>
+	extends Context<
+	IVKAppPayloadPayload,
+	S,
+	VKAppPayloadContextType,
+	VKAppPayloadContextSubType
+	> {
 	public constructor(options: VKAppPayloadContextOptions<S>) {
 		super({
 			...options,
 
 			type: 'vk_app_event',
-			subTypes: ['vk_app_payload']
+			subTypes: [
+				options.updateType as VKAppPayloadContextSubType
+			]
 		});
 	}
 
@@ -57,8 +67,8 @@ export default class VKAppPayloadContext<S = Record<string, any>>
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'userId',
 			'appId',
 			'groupId',

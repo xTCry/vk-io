@@ -1,6 +1,7 @@
-// eslint-disable-next-line import/no-cycle
 import {
 	Attachment,
+	ExternalAttachment,
+
 	PollAttachment,
 	GiftAttachment,
 	WallAttachment,
@@ -18,7 +19,7 @@ import {
 	AudioMessageAttachment
 } from '.';
 
-import VK from '../../vk';
+import { API } from '../../api';
 import { AttachmentType } from '../../utils/constants';
 
 const attachmentsTypes = {
@@ -42,19 +43,32 @@ const attachmentsTypes = {
 /**
  * Transform raw attachments to wrapper
  */
-// @ts-ignore
-// eslint-disable-next-line import/prefer-default-export, @typescript-eslint/no-explicit-any
-export const transformAttachments = (attachments: any[] = [], vk: VK): Attachment[] => (
-	attachments
-		.map((item): Attachment | boolean => {
-			const { type } = item;
+export const transformAttachments = (
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	rawAttachments: any[],
+	api: API
+// eslint-disable-next-line function-paren-newline
+): (Attachment | ExternalAttachment)[] => {
+	const attachments: (Attachment | ExternalAttachment)[] = [];
 
-			// @ts-ignore
-			const attachment = attachmentsTypes[type];
+	for (const rawAttachment of rawAttachments) {
+		const type = rawAttachment.type as AttachmentType;
 
-			return attachment
-				? new (attachment())(item[type], vk)
-				: false;
-		})
-		.filter(Boolean)
-);
+		const attachmentFactory = attachmentsTypes[type];
+
+		if (attachmentFactory === undefined) {
+			continue;
+		}
+
+		const AttachmentConstructor = attachmentFactory();
+
+		attachments.push(
+			new AttachmentConstructor({
+				api,
+				payload: rawAttachment[type]
+			})
+		);
+	}
+
+	return attachments;
+};

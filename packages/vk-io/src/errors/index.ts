@@ -1,28 +1,16 @@
-export { default as VKError } from './error';
+export * from './error';
 
-export { default as APIError } from './api';
-export { default as AuthError } from './auth';
-export { default as UploadError } from './upload';
-export { default as CollectError } from './collect';
-export { default as UpdatesError } from './updates';
-export { default as ExecuteError } from './execute';
-export { default as SnippetsError } from './snippets';
-export { default as StreamingRuleError } from './streaming-rule';
+export * from './api';
+export * from './upload';
+export * from './collect';
+export * from './updates';
+export * from './execute';
+export * from './resource';
 
 export {
-	APIErrorCode,
-	AuthErrorCode,
 	SharedErrorCode,
 	UploadErrorCode,
 	UpdatesErrorCode,
 	CollectErrorCode,
-	SnippetErrorCode,
-
-	apiErrors,
-	authErrors,
-	sharedErrors,
-	uploadErrors,
-	updatesErrors,
-	collectErrors,
-	snippetsErrors
+	ResourceErrorCode
 } from '../utils/constants';

@@ -1,6 +1,6 @@
 import { IContext } from '../types';
 
-export default interface IScene {
+export interface IScene {
 	/**
 	 * The unique name of the scene
 	 */
@@ -9,12 +9,10 @@ export default interface IScene {
 	/**
 	 * Enter handler for the scene
 	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	enterHandler(context: IContext): any;
+	enterHandler(context: IContext): unknown;
 
 	/**
 	 * Leave handler for the scene
 	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	leaveHandler(context: IContext): any;
+	leaveHandler(context: IContext): unknown;
 }

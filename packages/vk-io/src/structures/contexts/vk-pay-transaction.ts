@@ -1,28 +1,37 @@
-import Context, { IContextOptions } from './context';
+import { Context, ContextFactoryOptions, ContextDefaultState } from './context';
 
-import { copyParams } from '../../utils/helpers';
-import { inspectCustomData } from '../../utils/constants';
+import { pickProperties } from '../../utils/helpers';
+import { kSerializeData } from '../../utils/constants';
+
+export type VKPayTransactionContextType = 'vk_pay_transaction';
+
+export type VKPayTransactionContextSubType = 'vkpay_transaction';
 
 export interface IVKPayTransactionPayload {
 	from_id: number;
 	amount: number;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	description: string;
 	date: number;
 }
 
 export type VKPayTransactionContextOptions<S> =
-	Omit<IContextOptions<IVKPayTransactionPayload, S>, 'type' | 'subTypes'>;
+	ContextFactoryOptions<IVKPayTransactionPayload, S>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default class VKPayTransactionContext<S = Record<string, any>>
-	extends Context<IVKPayTransactionPayload, S> {
+export class VKPayTransactionContext<S = ContextDefaultState>
+	extends Context<
+	IVKPayTransactionPayload,
+	S,
+	VKPayTransactionContextType,
+	VKPayTransactionContextSubType
+	> {
 	public constructor(options: VKPayTransactionContextOptions<S>) {
 		super({
 			...options,
 
 			type: 'vk_pay_transaction',
-			subTypes: ['vk_pay_transfer']
+			subTypes: [
+				options.updateType as VKPayTransactionContextSubType
+			]
 		});
 	}
 
@@ -57,8 +66,8 @@ export default class VKPayTransactionContext<S = Record<string, any>>
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'fromId',
 			'amount',
 			'description',

@@ -1,11 +1,5 @@
-import SessionManager, { ISessionManagerOptions } from './session-manager';
-
 export * from './storages';
 
-export {
-	SessionManager,
+export * from './types';
 
-	ISessionManagerOptions
-};
-
-export default SessionManager;
+export { SessionManager } from './session-manager';
