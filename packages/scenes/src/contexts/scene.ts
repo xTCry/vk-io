@@ -8,7 +8,7 @@ import {
 } from './scene.types';
 import { IScene } from '../scenes';
 
-export default class SceneContext {
+export class SceneContext {
 	/**
 	 * Lazy session for submodules
 	 * ```ts
@@ -47,12 +47,16 @@ export default class SceneContext {
 	/**
 	 * Controlled behavior leave
 	 */
-	private leaved = false;
+	public leaving = false;
+
+	private sessionKey: string;
 
 	public constructor(options: ISceneContextOptions) {
 		this.context = options.context;
 
 		this.repository = options.repository;
+
+		this.sessionKey = options.sessionKey;
 
 		this.updateSession();
 	}
@@ -60,7 +64,7 @@ export default class SceneContext {
 	/**
 	 * Returns current scene
 	 */
-	public get current(): IScene | null {
+	public get current(): IScene | undefined {
 		return this.repository.get(this.session.current);
 	}
 
@@ -80,20 +84,20 @@ export default class SceneContext {
 	public async enter(slug: string, options: ISceneContextEnterOptions = {}): Promise<void> {
 		const scene = this.repository.strictGet(slug);
 
-		const { current } = this;
+		const isCurrent = this.current?.slug === scene.slug;
 
-		const isNotCurrent = current !== null && current.slug !== scene.slug;
+		if (!isCurrent) {
+			if (!this.leaving) {
+				await this.leave({
+					silent: options.silent
+				});
+			}
 
-		if (!this.leaved && isNotCurrent) {
-			await this.leave({
-				silent: options.silent
-			});
-		}
+			if (this.leaving) {
+				this.leaving = false;
 
-		if (this.leaved && isNotCurrent) {
-			this.leaved = false;
-
-			this.reset();
+				this.reset();
+			}
 		}
 
 		this.lastAction = LastAction.ENTER;
@@ -143,25 +147,22 @@ export default class SceneContext {
 			return;
 		}
 
-		this.leaved = true;
+		this.leaving = true;
 		this.lastAction = LastAction.LEAVE;
 
 		if (!options.silent) {
-			this.canceled = options.canceled !== undefined
-				? options.canceled
-				: false;
+			this.canceled = options.canceled ?? false;
 
 			await current.leaveHandler(this.context);
 		}
 
-		if (this.leaved) {
+		if (this.leaving) {
 			this.reset();
 		}
 
-		this.leaved = false;
+		this.leaving = false;
 		this.canceled = false;
 	}
-
 
 	/**
 	 * Reset state/session
@@ -178,12 +179,12 @@ export default class SceneContext {
 	 */
 	private updateSession(): void {
 		// eslint-disable-next-line no-underscore-dangle
-		this.session = new Proxy(this.context.session.__scene || {}, {
+		this.session = new Proxy(this.context[this.sessionKey].__scene || {}, {
 			set: (target, prop, value): boolean => {
 				target[prop] = value;
 
 				// eslint-disable-next-line no-underscore-dangle
-				this.context.session.__scene = target;
+				this.context[this.sessionKey].__scene = target;
 
 				return true;
 			}

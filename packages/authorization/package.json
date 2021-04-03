@@ -1,0 +1,49 @@
+{
+	"name": "@vk-io/authorization",
+	"version": "1.0.0",
+	"description": "Separated module for authorization",
+	"license": "MIT",
+	"author": {
+		"name": "Vladlen (Negezor)",
+		"email": "negezor@gmail.com"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/negezor/vk-io.git",
+		"directory": "packages/authorization"
+	},
+	"homepage": "https://github.com/negezor/vk-io#readme",
+	"bugs": "https://github.com/negezor/vk-io/issues",
+	"keywords": [
+		"vk",
+		"io",
+		"api",
+		"authorization"
+	],
+	"files": [
+		"lib"
+	],
+	"main": "lib/index",
+	"module": "lib/index.mjs",
+	"types": "./lib/index.d.ts",
+	"engines": {
+		"node": ">=12.0.0"
+	},
+	"peerDependencies": {
+		"vk-io": "^4.0.0"
+	},
+	"dependencies": {
+		"abort-controller": "^3.0.0",
+		"cheerio": "^1.0.0-rc.5",
+		"debug": "^4.3.1",
+		"inspectable": "^1.1.0",
+		"node-fetch": "^2.6.1",
+		"tough-cookie": "^4.0.0"
+	},
+	"devDependencies": {
+		"@types/cheerio": "^0.22.24",
+		"@types/debug": "^4.1.5",
+		"@types/node-fetch": "^2.5.8",
+		"@types/tough-cookie": "^4.0.0"
+	}
+}

@@ -6,10 +6,10 @@
 <a href="https://www.codacy.com/app/negezor/vk-io"><img src="https://img.shields.io/codacy/grade/25ee36d46e6e498981a74f8b0653aacc.svg?style=flat-square" alt="Code quality"></a>
 </p>
 
-VK-IO - This is a powerful [Node.js](https://nodejs.org) module that allows you to easily interact with the VK API 🚀
+VK-IO - This is a powerful [Node.js](https://nodejs.org) module that allows you to easily interact with the API VK 🚀
 
-| 📖 [Documentation](https://github.com/negezor/vk-io/tree/master/docs) | 🤖 [Examples](https://github.com/negezor/vk-io/tree/master/docs/examples) |
-|---------------------------|---------------------------|
+| 📖 [Documentation](https://negezor.github.io/vk-io/) | 🤖 [Examples](https://github.com/negezor/vk-io/tree/master/docs/examples) |
+|------------------------------------------------------|----------------------------------------------------------------------------|
 
 ## Features
 - 100% coverage of the VKontakte API
@@ -19,7 +19,7 @@ VK-IO - This is a powerful [Node.js](https://nodejs.org) module that allows you 
 - Typings
 
 ## Installation
-> **[Node.js](https://nodejs.org/) 8.0.0 or newer is required**  
+> **[Node.js](https://nodejs.org/) 12.0.0 or newer is required**  
 
 ### Yarn
 Recommended
@@ -51,11 +51,16 @@ async function run() {
 run().catch(console.log);
 ```
 
-
 ## Community
 ### Useful modules that may be useful to you
 
-* [@vk-io/session](../session): Simple implementation of the sessions
-* [@vk-io/scenes](../scenes): Simple implementation of middleware-based scene management
+* [@vk-io/authorization](https://github.com/negezor/vk-io/tree/master/packages/authorization): Authorization by login & password, and etc... 
+* [@vk-io/streaming](https://github.com/negezor/vk-io/tree/master/packages/streaming): Receiving data with Streaming API
+* [@vk-io/session](https://github.com/negezor/vk-io/tree/master/packages/session): Simple implementation of the sessions
+* [@vk-io/scenes](https://github.com/negezor/vk-io/tree/master/packages/scenes): Simple implementation of middleware-based scene management
+* [@vk-io/hear](https://github.com/negezor/vk-io/tree/master/packages/hear): Simple implementation of the hears
+* [vk-io-question](https://github.com/fakemancat/vk-io-question): Simple promise-based prompt
+* [vk-io-pages](https://github.com/MrZillaGold/vk-io-pages): Dynamic pages pagination module
+* [henta](https://github.com/u14-team/henta): Simple VK bot engine
 
 > If you want to add your module in the list, create a [new issue](https://github.com/negezor/vk-io/issues/new) in the repository.

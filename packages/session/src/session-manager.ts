@@ -1,34 +1,21 @@
-import { ISessionStorage, MemoryStorage } from './storages';
+import { MemoryStorage } from './storages';
 
-import { IContext, ISessionContext, Middleware } from './types';
+import {
+	IContext,
+	ISessionContext,
+	ISessionManagerOptions,
 
-export interface ISessionManagerOptions {
-	/**
-	 * Storage based on ISessionStorage interface
-	 */
-	storage: ISessionStorage;
+	Middleware
+} from './types';
 
-	/**
-	 * Key for session in context
-	 */
-	contextKey: string;
-
-	/**
-	 * Returns the key for session storage
-	 */
-	getStorageKey<T = {}>(context: IContext & T): string;
-}
-
-export type SessionForceUpdate = () => Promise<boolean>;
-
-export default class SessionManager {
+export class SessionManager<T = {}> {
 	protected storage: ISessionManagerOptions['storage'];
 
 	protected contextKey: ISessionManagerOptions['contextKey'];
 
 	protected getStorageKey: ISessionManagerOptions['getStorageKey'];
 
-	public constructor(options: Partial<ISessionManagerOptions> = {}) {
+	public constructor(options: Partial<ISessionManagerOptions<T>> = {}) {
 		this.storage = options.storage || (
 			new MemoryStorage()
 		);
@@ -51,11 +38,8 @@ export default class SessionManager {
 
 			let changed = false;
 			const wrapSession = (targetRaw: object): ISessionContext => (
-				new Proxy<
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				Record<string, any> & { $forceUpdate: SessionForceUpdate }
-				// eslint-disable-next-line @typescript-eslint/no-use-before-define
-				>({ ...targetRaw, $forceUpdate }, {
+				// eslint-disable-next-line no-use-before-define
+				new Proxy<ISessionContext>({ ...targetRaw, $forceUpdate }, {
 					set: (target, prop: string, value): boolean => {
 						changed = true;
 
@@ -63,7 +47,7 @@ export default class SessionManager {
 
 						return true;
 					},
-					deleteProperty(target, prop: string): boolean {
+					deleteProperty: (target, prop: string): boolean => {
 						changed = true;
 
 						delete target[prop];
@@ -74,11 +58,11 @@ export default class SessionManager {
 			);
 
 			const $forceUpdate = (): Promise<boolean> => {
-				// eslint-disable-next-line @typescript-eslint/no-use-before-define
+				// eslint-disable-next-line no-use-before-define
 				if (Object.keys(session).length > 1) {
 					changed = false;
 
-					// eslint-disable-next-line @typescript-eslint/no-use-before-define
+					// eslint-disable-next-line no-use-before-define
 					return storage.set(storageKey, session);
 				}
 

@@ -1,12 +1,9 @@
-import VKError from './error';
-import { APIErrorCode } from '../utils/constants';
-
-const { CAPTCHA_REQUIRED, USER_VALIDATION_REQUIRED, CONFIRMATION_REQUIRED } = APIErrorCode;
+import { VKError } from './error';
+import { APIErrorCode } from '../api/schemas/constants';
 
 export interface IAPIErrorParam {
 	key: string;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	value: any;
+	value: string;
 }
 
 export interface IAPIErrorOptions {
@@ -20,7 +17,7 @@ export interface IAPIErrorOptions {
 	confirmation_text?: string;
 }
 
-export default class APIError extends VKError {
+export class APIError extends VKError {
 	/**
 	 * Request parameters
 	 */
@@ -57,13 +54,15 @@ export default class APIError extends VKError {
 
 		this.params = payload.request_params;
 
-		if (code === CAPTCHA_REQUIRED) {
+		if (code === APIErrorCode.CAPTCHA) {
 			this.captchaSid = Number(payload.captcha_sid);
 			this.captchaImg = payload.captcha_img;
-		} else if (code === USER_VALIDATION_REQUIRED) {
+		} else if (code === APIErrorCode.AUTH_VALIDATION) {
 			this.redirectUri = payload.redirect_uri;
-		} else if (code === CONFIRMATION_REQUIRED) {
+		} else if (code === APIErrorCode.NEED_CONFIRMATION) {
 			this.confirmationText = payload.confirmation_text;
 		}
 	}
 }
+
+export { APIErrorCode };

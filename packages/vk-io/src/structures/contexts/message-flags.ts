@@ -1,13 +1,42 @@
-import Context, { IContextOptions } from './context';
+import { Context, ContextFactoryOptions, ContextDefaultState } from './context';
 
-import { copyParams } from '../../utils/helpers';
-import { inspectCustomData } from '../../utils/constants';
+import { MessageContext } from './message';
 
-const subTypes: Record<number, string> = {
-	1: 'update_message_flags',
-	2: 'set_message_flags',
-	3: 'remove_message_flags'
+import { pickProperties } from '../../utils/helpers';
+import { kSerializeData, UpdateSource } from '../../utils/constants';
+
+export type MessageFlagsContextType = 'message_flags';
+
+export type MessageFlagsContextSubType =
+'message_flags_replace'
+| 'message_flags_add'
+| 'message_flags_delete';
+
+const subTypes: Record<number, MessageFlagsContextSubType> = {
+	1: 'message_flags_replace',
+	2: 'message_flags_add',
+	3: 'message_flags_delete'
 };
+
+/* eslint-disable no-bitwise */
+enum MessageFlag {
+	UNREAD = 1 << 0,
+	OUTBOX = 1 << 1,
+	IMPORTANT = 1 << 3,
+	FROM_WEB_CHAT = 1 << 4,
+	FRIEND_MESSAGE = 1 << 5,
+	MARK_SPAM = 1 << 6,
+	DELЕTЕD = 1 << 7,
+	AUDIO_MESSAGE_LISTENED = 1 << 12,
+	FROM_CLIENT_CHAT = 1 << 13,
+	UNMARK_SPAM = 1 << 15,
+	HIDDEN = 1 << 16,
+	DELETED_FOR_ALL = 1 << 17,
+	INBOX_FROM_CHAT = 1 << 19,
+	SILENT = 1 << 20,
+	REPLIED = 1 << 21
+}
+/* eslint-enable no-bitwise */
 
 export interface IMessageFlagsContextPayload {
 	id: number;
@@ -16,11 +45,17 @@ export interface IMessageFlagsContextPayload {
 }
 
 export type MessageFlagsContextOptions<S> =
-	Omit<IContextOptions<number[], S>, 'type' | 'subTypes'>;
+ContextFactoryOptions<number[], S>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default class MessageFlagsContext<S = Record<string, any>>
-	extends Context<IMessageFlagsContextPayload, S> {
+export class MessageFlagsContext<S = ContextDefaultState>
+	extends Context<
+	IMessageFlagsContextPayload,
+	S,
+	MessageFlagsContextType,
+	MessageFlagsContextSubType
+	> {
+	public message?: MessageContext;
+
 	public constructor(options: MessageFlagsContextOptions<S>) {
 		const [eventId, id, flags, peerId] = options.payload;
 
@@ -38,102 +73,122 @@ export default class MessageFlagsContext<S = Record<string, any>>
 				id
 			}
 		});
+
+		if (options.payload.length > 4) {
+			this.message = new MessageContext({
+				api: this.api,
+				upload: this.upload,
+				source: UpdateSource.POLLING,
+				updateType: 4,
+				// @ts-expect-error
+				payload: options.payload
+			});
+		}
 	}
 
 	/**
-	 * Verifies that the message is not read
+	 * Checks if a message is unread
 	 */
 	public get isUnread(): boolean {
-		// eslint-disable-next-line no-bitwise
-		return Boolean(this.flags & 1);
+		return this.hasFlag(MessageFlag.UNREAD);
 	}
 
 	/**
-	 * Checks that the outgoing message
+	 * Checks if a message is outbox
 	 */
 	public get isOutbox(): boolean {
-		// eslint-disable-next-line no-bitwise
-		return Boolean(this.flags & 2);
+		return this.hasFlag(MessageFlag.OUTBOX);
 	}
 
 	/**
-	 * Verifies that a reply has been created to the message
-	 */
-	public get isReplied(): boolean {
-		// eslint-disable-next-line no-bitwise
-		return Boolean(this.flags & 4);
-	}
-
-	/**
-	 * Verifies that the marked message
+	 * Checks if a message is important
 	 */
 	public get isImportant(): boolean {
-		// eslint-disable-next-line no-bitwise
-		return Boolean(this.flags & 8);
+		return this.hasFlag(MessageFlag.IMPORTANT);
 	}
 
 	/**
-	 * Verifies that the message was sent via chat
+	 * Checks if a message was sent from a web chat
 	 */
-	public get isChat(): boolean {
-		// eslint-disable-next-line no-bitwise
-		return Boolean(this.flags & 16);
+	public get isFromWebChat(): boolean {
+		return this.hasFlag(MessageFlag.FROM_WEB_CHAT);
 	}
 
 	/**
-	 * Verifies that the message was sent by a friend
+	 * Checks whether a message has been sent or received from a friend
 	 */
-	public get isFriends(): boolean {
-		// eslint-disable-next-line no-bitwise
-		return Boolean(this.flags & 32);
+	public get isFriendMessage(): boolean {
+		return this.hasFlag(MessageFlag.FRIEND_MESSAGE);
 	}
 
 	/**
-	 * Verifies that the message is marked as "Spam"
+	 * Check if a message is marked as spam
 	 */
-	public get isSpam(): boolean {
-		// eslint-disable-next-line no-bitwise
-		return Boolean(this.flags & 64);
+	public get isMarkSpam(): boolean {
+		return this.hasFlag(MessageFlag.MARK_SPAM);
 	}
 
 	/**
-	 * Verifies that the message has been deleted (in the Recycle Bin)
+	 * Check if the message was deleted locally
 	 */
 	public get isDeleted(): boolean {
-		// eslint-disable-next-line no-bitwise
-		return Boolean(this.flags & 128);
+		return this.hasFlag(MessageFlag.DELЕTЕD);
 	}
 
 	/**
-	 * Verifies that the message was verified by the user for spam
+	 * Checks if a audio message has been listened
 	 */
-	public get isFixed(): boolean {
-		// eslint-disable-next-line no-bitwise
-		return Boolean(this.flags & 256);
+	public get isAudioMessageListened(): boolean {
+		return this.hasFlag(MessageFlag.AUDIO_MESSAGE_LISTENED);
 	}
 
 	/**
-	 * Verifies that the message contains media content
+	 * Checks if a message was sent from a client
 	 */
-	public get isMedia(): boolean {
-		// eslint-disable-next-line no-bitwise
-		return Boolean(this.flags & 512);
+	public get isFromClientChat(): boolean {
+		return this.hasFlag(MessageFlag.FROM_CLIENT_CHAT);
 	}
 
 	/**
-	 * Checks that a welcome message from the community
+	 * Check if message is unmarked as spam
+	 */
+	public get isUnmarkSpam(): boolean {
+		return this.hasFlag(MessageFlag.UNMARK_SPAM);
+	}
+
+	/**
+	 * Checks if it's a welcome message from the group
 	 */
 	public get isHidden(): boolean {
-		// eslint-disable-next-line no-bitwise
-		return Boolean(this.flags & 65536);
+		return this.hasFlag(MessageFlag.HIDDEN);
 	}
 
 	/**
-	 * Message deleted for all recipients
+	 * Check if the message was deleted for all
 	 */
 	public get isDeletedForAll(): boolean {
-		// eslint-disable-next-line no-bitwise
-		return Boolean(this.flags & 131072);
+		return this.hasFlag(MessageFlag.DELETED_FOR_ALL);
+	}
+
+	/**
+	 * Checks if the message is inbox from chat
+	 */
+	public get isInboxFromChat(): boolean {
+		return this.hasFlag(MessageFlag.INBOX_FROM_CHAT);
+	}
+
+	/**
+	 * Checks if the message is silent (without notifications)
+	 */
+	public get isSilent(): boolean {
+		return this.hasFlag(MessageFlag.SILENT);
+	}
+
+	/**
+	 * Checks a reply has been created to the message
+	 */
+	public get isReplied(): boolean {
+		return this.hasFlag(MessageFlag.REPLIED);
 	}
 
 	/**
@@ -157,14 +212,35 @@ export default class MessageFlagsContext<S = Record<string, any>>
 		return this.payload.flags;
 	}
 
+	protected hasFlag(flag: MessageFlag): boolean {
+		// eslint-disable-next-line no-bitwise
+		return Boolean(this.flags & flag);
+	}
+
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'id',
 			'peerId',
-			'flags'
+			'flags',
+			'message',
+			'isUnread',
+			'isOutbox',
+			'isImportant',
+			'isFromWebChat',
+			'isFriendMessage',
+			'isMarkSpam',
+			'isDeleted',
+			'isAudioMessageListened',
+			'isFromClientChat',
+			'isUnmarkSpam',
+			'isHidden',
+			'isDeletedForAll',
+			'isInboxFromChat',
+			'isSilent',
+			'isReplied'
 		]);
 	}
 }

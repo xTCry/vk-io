@@ -1,25 +1,9 @@
-import VK from '../../vk';
+import { Attachment, AttachmentFactoryOptions } from './attachment';
 
-import Attachment from './attachment';
+import { IPhotoAttachmentPayload } from './photo';
 
-import { copyParams } from '../../utils/helpers';
-import { AttachmentType, inspectCustomData } from '../../utils/constants';
-
-const { DOCUMENT } = AttachmentType;
-
-/**
- * Types of documents
- */
-const documentTypes = new Map([
-	[1, 'text'],
-	[2, 'archive'],
-	[3, 'gif'],
-	[4, 'image'],
-	[5, 'audio'],
-	[6, 'video'],
-	[7, 'book'],
-	[8, 'unknown']
-]);
+import { pickProperties } from '../../utils/helpers';
+import { AttachmentType, kSerializeData } from '../../utils/constants';
 
 export interface IDocumentAttachmentPayload {
 	id: number;
@@ -31,22 +15,40 @@ export interface IDocumentAttachmentPayload {
 	ext?: string;
 	url?: string;
 	date?: number;
-	type?: number;
-	preview?: object;
+	type?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	preview?: {
+		photo?: IPhotoAttachmentPayload['sizes'];
+		graffiti?: {
+			src: string;
+			width: number;
+			height: number;
+		};
+		audio_message?: {
+			duration: number;
+			waveform: number[];
+			link_ogg: string;
+			link_mp3: string;
+		};
+	};
 }
 
-export default class DocumentAttachment extends Attachment<IDocumentAttachmentPayload> {
+export type DocumentAttachmentOptions =
+	AttachmentFactoryOptions<IDocumentAttachmentPayload>;
+
+export class DocumentAttachment
+	extends Attachment<IDocumentAttachmentPayload, AttachmentType.DOCUMENT | 'doc'> {
 	/**
 	 * Constructor
 	 */
-	public constructor(payload: IDocumentAttachmentPayload, vk?: VK) {
-		super(DOCUMENT, payload.owner_id, payload.id, payload.access_key);
+	public constructor(options: DocumentAttachmentOptions) {
+		super({
+			...options,
 
-		// @ts-ignore
-		this.vk = vk;
-		this.payload = payload;
+			type: AttachmentType.DOCUMENT
+		});
 
-		this.$filled = 'ext' in payload && 'date' in payload;
+		this.$filled = this.payload.ext !== undefined && this.payload.date !== undefined;
 	}
 
 	/**
@@ -57,17 +59,11 @@ export default class DocumentAttachment extends Attachment<IDocumentAttachmentPa
 			return;
 		}
 
-		// @ts-ignore
-		const [document] = await this.vk.api.docs.getById({
+		const [document] = await this.api.docs.getById({
 			docs: `${this.ownerId}_${this.id}`
 		});
 
-		// @ts-ignore
-		this.payload = document;
-
-		if (this.payload.access_key) {
-			this.accessKey = this.payload.access_key;
-		}
+		this.payload = document as IDocumentAttachmentPayload;
 
 		this.$filled = true;
 	}
@@ -75,9 +71,9 @@ export default class DocumentAttachment extends Attachment<IDocumentAttachmentPa
 	/**
 	 * Checks if the document is a text
 	 */
-	public get isText(): boolean | null {
+	public get isText(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return this.typeId === 1;
@@ -86,9 +82,9 @@ export default class DocumentAttachment extends Attachment<IDocumentAttachmentPa
 	/**
 	 * Checks if the document is a archive
 	 */
-	public get isArchive(): boolean | null {
+	public get isArchive(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return this.typeId === 2;
@@ -97,9 +93,9 @@ export default class DocumentAttachment extends Attachment<IDocumentAttachmentPa
 	/**
 	 * Checks if the document is a gif file
 	 */
-	public get isGif(): boolean | null {
+	public get isGif(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return this.typeId === 3;
@@ -108,9 +104,9 @@ export default class DocumentAttachment extends Attachment<IDocumentAttachmentPa
 	/**
 	 * Checks if the document is a image
 	 */
-	public get isImage(): boolean | null {
+	public get isImage(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return this.typeId === 4;
@@ -119,9 +115,9 @@ export default class DocumentAttachment extends Attachment<IDocumentAttachmentPa
 	/**
 	 * Checks if the document is a graffiti
 	 */
-	public get isGraffiti(): boolean | null {
+	public get isGraffiti(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return this.hasPreviewProperty('graffiti');
@@ -130,9 +126,9 @@ export default class DocumentAttachment extends Attachment<IDocumentAttachmentPa
 	/**
 	 * Checks if the document is a audio
 	 */
-	public get isAudio(): boolean | null {
+	public get isAudio(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return this.typeId === 5;
@@ -141,20 +137,20 @@ export default class DocumentAttachment extends Attachment<IDocumentAttachmentPa
 	/**
 	 * Checks if the document is a voice
 	 */
-	public get isVoice(): boolean | null {
+	public get isVoice(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
-		return this.hasPreviewProperty('audio_msg');
+		return this.hasPreviewProperty('audio_message');
 	}
 
 	/**
 	 * Checks if the document is a video
 	 */
-	public get isVideo(): boolean | null {
+	public get isVideo(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return this.typeId === 6;
@@ -163,9 +159,9 @@ export default class DocumentAttachment extends Attachment<IDocumentAttachmentPa
 	/**
 	 * Checks if the document is a book
 	 */
-	public get isBook(): boolean | null {
+	public get isBook(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return this.typeId === 7;
@@ -174,89 +170,82 @@ export default class DocumentAttachment extends Attachment<IDocumentAttachmentPa
 	/**
 	 * Returns the document title
 	 */
-	public get title(): string | null {
-		return this.payload.title || null;
+	public get title(): string | undefined {
+		return this.payload.title;
 	}
 
 	/**
 	 * Returns the date when this document was created
 	 */
-	public get createdAt(): number | null {
-		return this.payload.date || null;
+	public get createdAt(): number | undefined {
+		return this.payload.date;
 	}
 
 	/**
-	 * Returns the type identifier (1~8)
+	 * Returns the type identifier
+	 *
+	 * **1** - text documents
+	 *
+	 * **2** - archives
+	 *
+	 * **3** - gif
+	 *
+	 * **4** - images
+	 *
+	 * **5** - audio
+	 *
+	 * **6** - video
+	 *
+	 * **7** - e-books
+	 *
+	 * **8** - unknown
 	 */
-	public get typeId(): number | null {
-		return this.payload.type || null;
-	}
-
-	/**
-	 * Returns the type name
-	 */
-	public get typeName(): string | null {
-		if (!this.$filled) {
-			return null;
-		}
-
-		return documentTypes.get(this.typeId!)!;
+	public get typeId(): IDocumentAttachmentPayload['type'] | undefined {
+		return this.payload.type;
 	}
 
 	/**
 	 * Returns the size in bytes
 	 */
-	public get size(): number | null {
-		if (!this.$filled) {
-			return null;
-		}
-
-		return this.payload.size!;
+	public get size(): number | undefined {
+		return this.payload.size;
 	}
 
 	/**
 	 * Returns the extension
 	 */
-	public get extension(): string | null {
-		return this.payload.ext || null;
+	public get extension(): string | undefined {
+		return this.payload.ext;
 	}
 
 	/**
 	 * Returns the URL of the document
 	 */
-	public get url(): string | null {
-		return this.payload.url || null;
+	public get url(): string | undefined {
+		return this.payload.url;
 	}
 
 	/**
 	 * Returns the info to preview
 	 */
-	public get preview(): object | null {
-		return this.payload.preview || null;
+	public get preview(): IDocumentAttachmentPayload['preview'] | undefined {
+		return this.payload.preview;
 	}
 
 	/**
 	 * Checks for a property in preview
 	 */
-	public hasPreviewProperty(name: string): boolean {
-		const { preview } = this;
-
-		if (preview === null) {
-			return false;
-		}
-
-		return name in preview;
+	public hasPreviewProperty(name: 'photo' | 'graffiti' | 'audio_message'): boolean {
+		return this.preview?.[name] !== undefined;
 	}
 
 	/**
 	 * Returns the custom data
 	 */
-	// @ts-ignore
-	public [inspectCustomData](): object | null {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'title',
 			'typeId',
-			'typeName',
 			'createdAt',
 			'extension',
 			'url'

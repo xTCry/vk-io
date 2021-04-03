@@ -1,23 +1,33 @@
-import { inspect } from 'util';
+import { inspectable } from 'inspectable';
 
-import VK from '../../vk';
-import { inspectCustomData } from '../../utils/constants';
+import { API } from '../../api';
+import { IAttachmentOptions, AttachmentFactoryOptions } from './attachment';
 
-export default class ExternalAttachment<P = {}> {
-	public type: string;
+import { kSerializeData, AttachmentType } from '../../utils/constants';
+
+export type IExternalAttachmentOptions<P, Type extends string = string> =
+IAttachmentOptions<P, Type>;
+
+export type ExternalAttachmentFactoryOptions<P> = AttachmentFactoryOptions<P>;
+
+export class ExternalAttachment<P = {}, Type extends string | AttachmentType = string> {
+	public type: Type;
 
 	protected $filled: boolean;
 
-	protected vk!: VK;
+	protected api!: API;
 
 	protected payload: P;
 
 	/**
 	 * Constructor
 	 */
-	public constructor(type: string, payload: P) {
-		this.type = type;
-		this.payload = payload;
+	public constructor(options: IExternalAttachmentOptions<P, Type>) {
+		this.api = options.api;
+
+		this.type = options.type;
+
+		this.payload = options.payload;
 
 		this.$filled = false;
 	}
@@ -36,7 +46,6 @@ export default class ExternalAttachment<P = {}> {
 		return this.$filled;
 	}
 
-
 	/**
 	 * Can be attached via string representation
 	 */
@@ -49,28 +58,22 @@ export default class ExternalAttachment<P = {}> {
 	 * Returns data for JSON
 	 */
 	public toJSON(): object {
-		return this[inspectCustomData]();
+		return this[kSerializeData]();
 	}
 
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
-		// @ts-ignore
-		return this.payload;
-	}
-
-	/**
-	 * Custom inspect object
-	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public [inspect.custom](depth: number, options: Record<string, any>): string {
-		const { name } = this.constructor;
-
-		const customData = this[inspectCustomData]();
-
-		const payload = inspect(customData, { ...options, compact: false });
-
-		return `${options.stylize(name, 'special')} ${payload}`;
+	public [kSerializeData](): object {
+		return {
+			payload: this.payload
+		};
 	}
 }
+
+inspectable(ExternalAttachment, {
+	serialize: instance => instance.toJSON(),
+	stringify: (instance, payload, context): string => (
+		`${context.stylize(instance.constructor.name, 'special')} ${context.inspect(payload)}`
+	)
+});

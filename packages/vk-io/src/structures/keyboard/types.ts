@@ -15,7 +15,6 @@ export type ButtonPayload = object | string;
 /**
  * Primary colors used in the text button
  */
-// eslint-disable-next-line import/prefer-default-export
 export enum ButtonColor {
 	/**
 	 * The white button, indicates secondary action
@@ -65,6 +64,27 @@ export interface ITextButton extends IButton {
 		 * Button label, no more than 40 characters
 		 */
 		label: string;
+
+		/**
+		 * Payload, preferably use object
+		 */
+		payload: ButtonPayload;
+	};
+}
+
+export interface IURLButton extends IButton {
+	action: {
+		type: 'open_link';
+
+		/**
+		 * Button label, no more than 40 characters
+		 */
+		label: string;
+
+		/**
+		 * The link that will be opened when clicked
+		 */
+		link: string;
 
 		/**
 		 * Payload, preferably use object
@@ -127,12 +147,34 @@ export interface IVKApplicationButton extends IButton {
 	};
 }
 
+export interface ICallbackButton extends IButton {
+	/**
+	 * Button color, default is secondary
+	 */
+	color: ButtonColor | ButtonColorUnion;
+
+	action: {
+		type: 'callback';
+
+		/**
+		 * Button label, no more than 40 characters
+		 */
+		label: string;
+
+		/**
+		 * Payload, preferably use object
+		 */
+		payload: ButtonPayload;
+	};
+}
+
 export type KeyboardButton =
 	ITextButton
+	| IURLButton
 	| ILocationButton
 	| IVKPayButton
-	| IVKApplicationButton;
-
+	| IVKApplicationButton
+	| ICallbackButton;
 
 export interface IKeyboardTextButtonOptions {
 	/**
@@ -144,6 +186,25 @@ export interface IKeyboardTextButtonOptions {
 	 * Button label, no more than 40 characters
 	 */
 	label: string;
+
+	/**
+	 * Payload, preferably use object
+	 *
+	 * No more than 255 characters in JSON stringified
+	 */
+	payload?: ButtonPayload;
+}
+
+export interface IKeyboardURLButtonOptions {
+	/**
+	 * Button label, no more than 40 characters
+	 */
+	label: string;
+
+	/**
+	 * The link that will be opened when clicked
+	 */
+	url: string;
 
 	/**
 	 * Payload, preferably use object
@@ -292,13 +353,34 @@ export interface IKeyboardApplicationButtonOptions {
 	hash?: string;
 }
 
+export interface IKeyboardCallbackButtonOptions {
+	/**
+	 * Button color, default is secondary
+	 */
+	color?: ButtonColor | ButtonColorUnion;
+
+	/**
+	 * Button label, no more than 40 characters
+	 */
+	label: string;
+
+	/**
+	 * Payload, preferably use object
+	 *
+	 * No more than 255 characters in JSON stringified
+	 */
+	payload?: ButtonPayload;
+}
+
 export interface IKeyboardProxyButton {
 	options: (
 		IKeyboardTextButtonOptions
+		| IKeyboardURLButtonOptions
 		| IKeyboardLocationRequestButtonOptions
 		| IKeyboardVKPayButtonOptions
 		| IKeyboardApplicationButtonOptions
+		| IKeyboardCallbackButtonOptions
 	);
 
-	kind: 'text' | 'location_request' | 'vk_pay' | 'vk_application';
+	kind: 'text' | 'url' | 'location_request' | 'vk_pay' | 'vk_application' | 'callback';
 }

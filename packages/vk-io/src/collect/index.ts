@@ -1,3 +1,4 @@
-import Collect from './collect';
+export { IExecutesOptions, IExecutesPayload, executes } from './executes';
 
-export default Collect;
+export * from './chain';
+export * from './iterator';

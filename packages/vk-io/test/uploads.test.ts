@@ -1,4 +1,3 @@
-// @ts-ignore
 import fetch from 'node-fetch';
 
 import {
@@ -10,18 +9,20 @@ import {
 	PhotoAttachment
 } from '..';
 
-const { TOKEN = null } = process.env;
+const { TOKEN } = process.env;
 
-const vk = new VK({ token: TOKEN });
+const vk = new VK({ token: TOKEN! });
 
 const IMAGE_URL = 'https://picsum.photos/200/300/?image=1';
+
+jest.setTimeout(30000);
 
 describe('Uploads', (): void => {
 	const { upload } = vk;
 
 	it('should throw an error if there are no parameters', async (): Promise<void> => {
 		try {
-			// @ts-ignore
+			// @ts-expect-error
 			await upload.messagePhoto();
 		} catch (error) {
 			expect(error).toBeInstanceOf(UploadError);
@@ -29,7 +30,7 @@ describe('Uploads', (): void => {
 		}
 
 		try {
-			// @ts-ignore
+			// @ts-expect-error
 			await upload.messagePhoto({});
 		} catch (error) {
 			expect(error).toBeInstanceOf(UploadError);
@@ -40,7 +41,9 @@ describe('Uploads', (): void => {
 	it('should throw in the absence of source', async (): Promise<void> => {
 		try {
 			await upload.messagePhoto({
-				source: []
+				source: {
+					values: []
+				}
 			});
 		} catch (error) {
 			expect(error).toBeInstanceOf(UploadError);
@@ -53,8 +56,12 @@ describe('Uploads', (): void => {
 			await upload.messagePhoto({
 				source: {
 					values: [
-						IMAGE_URL,
-						IMAGE_URL
+						{
+							value: IMAGE_URL
+						},
+						{
+							value: IMAGE_URL
+						}
 					]
 				}
 			});
@@ -64,7 +71,8 @@ describe('Uploads', (): void => {
 		}
 	});
 
-	if (TOKEN === null) {
+	if (TOKEN === undefined) {
+		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		it('the test is skipped because there is no token', (): void => {});
 
 		return;
@@ -72,7 +80,9 @@ describe('Uploads', (): void => {
 
 	it('should upload image to wall from url', async (): Promise<void> => {
 		const photo = await upload.messagePhoto({
-			source: IMAGE_URL
+			source: {
+				value: IMAGE_URL
+			}
 		});
 
 		expect(photo).toBeInstanceOf(PhotoAttachment);
@@ -85,7 +95,9 @@ describe('Uploads', (): void => {
 		const buffer = await response.buffer();
 
 		const photo = await upload.messagePhoto({
-			source: buffer
+			source: {
+				value: buffer
+			}
 		});
 
 		expect(photo).toBeInstanceOf(PhotoAttachment);
@@ -97,7 +109,11 @@ describe('Uploads', (): void => {
 		const response = await fetch(IMAGE_URL);
 
 		const photo = await upload.messagePhoto({
-			source: response.body
+			source: {
+				value: response.body,
+				// @ts-expect-error
+				contentLength: response.headers.get('content-length')
+			}
 		});
 
 		expect(photo).toBeInstanceOf(PhotoAttachment);

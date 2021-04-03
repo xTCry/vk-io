@@ -1,14 +1,15 @@
-import VK from './vk';
-import Request from './api/request';
-
 export * from './errors';
-export * from './structures/keyboard';
-export * from './structures/contexts';
-export * from './structures/attachments';
 
-export * from './api/schemas/params';
-export * from './api/schemas/objects';
-export * from './api/schemas/responses';
+export * from './api';
+export * from './upload';
+export * from './collect';
+export * from './updates';
+export * from './structures';
+
+export * from './utils/callback-service';
+export * from './utils/resource-resolver';
+
+export { getRandomId, applyMixins } from './utils/helpers';
 
 export {
 	CaptchaType,
@@ -16,13 +17,9 @@ export {
 	ResourceType,
 	MessageSource,
 	AttachmentType,
+	AttachmentTypeString,
 
-	captchaTypes,
-	resourceTypes,
-	messageSources,
-	attachmentTypes
+	kSerializeData
 } from './utils/constants';
 
-export { VK, Request };
-
-export default VK;
+export { VK } from './vk';

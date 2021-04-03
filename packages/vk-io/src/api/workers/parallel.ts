@@ -1,64 +1,63 @@
-import Request from '../request';
-import sequential from './sequential';
+import { APIRequest } from '../request';
+import { SequentialWorker } from './sequential';
 
-import API from '../api';
-import {
-	delay,
-	getChainReturn,
-	resolveExecuteTask
-} from '../../utils/helpers';
+import { getChainReturn, resolveExecuteTask } from '../../utils/helpers';
 
-export default async function parallel(api: API, next: Function): Promise<void> {
-	// @ts-ignore
-	const { queue } = api;
+export class ParallelWorker extends SequentialWorker {
+	protected async execute(): Promise<void> {
+		const { queue } = this;
 
-	if (queue[0].method.startsWith('execute')) {
-		// @ts-ignore
-		sequential(api, next);
+		if (this.skipMethod(queue[0].method)) {
+			super.execute();
 
-		return;
-	}
-
-	// Wait next event loop, saves one request or more
-	await delay(0);
-
-	// @ts-ignore
-	const { apiExecuteCount } = api.vk.options;
-
-	const tasks = [];
-	const chain = [];
-
-	for (let i = 0; i < queue.length; i += 1) {
-		if (queue[i].method.startsWith('execute')) {
-			continue;
+			return;
 		}
 
-		const request = queue.splice(i, 1)[0];
+		const { apiExecuteCount } = this.api.options;
 
-		i -= 1;
+		const tasks: APIRequest[] = [];
 
-		tasks.push(request);
-		chain.push(String(request));
+		for (let i = 0; i < this.queue.length; i += 1) {
+			if (this.skipMethod(queue[i].method)) {
+				continue;
+			}
 
-		if (tasks.length >= apiExecuteCount) {
-			break;
+			tasks.push(
+				queue.splice(i, 1)[0]
+			);
+
+			i -= 1;
+
+			if (tasks.length >= apiExecuteCount) {
+				break;
+			}
 		}
-	}
 
-	try {
-		const request = new Request('execute', {
-			code: getChainReturn(chain)
+		if (tasks.length === 0) {
+			return;
+		}
+
+		const request = new APIRequest({
+			api: this.api,
+			method: 'execute',
+			params: {
+				code: getChainReturn(tasks.map(String))
+			}
 		});
 
-		// @ts-ignore
-		api.callMethod(request);
+		super.execute(request);
 
-		next();
-
-		resolveExecuteTask(tasks, await request.promise);
-	} catch (error) {
-		for (const task of tasks) {
-			task.reject(error);
+		try {
+			resolveExecuteTask(tasks, await request.promise);
+		} catch (error) {
+			for (const task of tasks) {
+				task.reject(error);
+			}
 		}
+	}
+
+	// eslint-disable-next-line class-methods-use-this
+	protected skipMethod(method: string): boolean {
+		return method.startsWith('execute');
 	}
 }

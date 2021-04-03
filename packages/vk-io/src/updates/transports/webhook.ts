@@ -1,6 +1,6 @@
-// @ts-ignore
 import createDebug from 'debug';
 
+import { TlsOptions } from 'tls';
 import { Server as HTTPSServer, createServer as httpsCreateServer } from 'https';
 import {
 	Server as HTTPServer,
@@ -11,42 +11,54 @@ import {
 } from 'http';
 import { promisify } from 'util';
 
-import VK from '../../vk';
+import { API } from '../../api';
 import { parseRequestJSON } from '../helpers';
+import { IUpdatesOptions } from '../updates';
 
 const debug = createDebug('vk-io:updates');
 
-export default class WebhookTransport {
+const defaultNextHandler = (req: IncomingMessage, res: ServerResponse): void => {
+	res.writeHead(403);
+	res.end();
+};
+
+export interface IWebhookTransportStartOptions {
+	tls?: TlsOptions;
+	path?: string;
+	port?: number;
+	host?: string;
+	next?: (req: IncomingMessage, res: ServerResponse) => unknown
+}
+
+export class WebhookTransport {
 	public started = false;
 
 	public webhookHandler!: Function;
 
-	protected webhookServer: HTTPServer | HTTPSServer | null = null;
+	protected webhookServer?: HTTPServer | HTTPSServer;
 
-	protected vk: VK;
+	protected api: API;
 
-	public constructor(vk: VK) {
-		this.vk = vk;
+	private options: Omit<IUpdatesOptions, 'api' | 'upload'>;
+
+	public constructor({ api, ...options }: Omit<IUpdatesOptions, 'upload'>) {
+		this.api = api;
+
+		this.options = options;
 	}
 
 	/**
 	 * Starts the webhook server
 	 */
-	public async start(
-		{
-			path = '/',
+	public async start({
+		path = '/',
 
-			tls,
-			host,
-			port
-		}: {
-			path?: string;
-			tls?: object;
-			host?: string;
-			port?: number;
-		} = {},
-		next?: Function
-	): Promise<void> {
+		tls,
+		host,
+		port: customPort,
+
+		next = defaultNextHandler
+	}: IWebhookTransportStartOptions = {}): Promise<void> {
 		if (this.started) {
 			throw new Error('Webhook updates already started');
 		}
@@ -60,18 +72,11 @@ export default class WebhookTransport {
 		try {
 			const webhookCallback = this.getWebhookCallback(path);
 
-			const callback = typeof next === 'function'
-				? (req: IncomingMessage, res: ServerResponse): Promise<void> => (
-					webhookCallback(req, res, (): void => (
-						next(req, res)
-					))
-				)
-				: (req: IncomingMessage, res: ServerResponse): Promise<void> => (
-					webhookCallback(req, res, (): void => {
-						res.writeHead(403);
-						res.end();
-					})
-				);
+			const callback = (req: IncomingMessage, res: ServerResponse): Promise<void> => (
+				webhookCallback(req, res, (): unknown => (
+					next(req, res)
+				))
+			);
 
 			this.webhookServer = tls
 				? httpsCreateServer(tls, callback)
@@ -79,18 +84,18 @@ export default class WebhookTransport {
 
 			const { webhookServer } = this;
 
-			const listen = promisify(webhookServer.listen).bind(webhookServer);
-
-			const serverPort = port || (
+			const port = customPort || (
 				tls
 					? 443
 					: 80
 			);
 
-			// @ts-ignore
-			await listen(serverPort, host);
+			await promisify(webhookServer.listen)
+				// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+				// @ts-ignore https://devblogs.microsoft.com/typescript/announcing-typescript-4-1/#unmatched-parameters-are-no-longer-related
+				.call(webhookServer, { host, port });
 
-			debug(`Webhook listening on port: ${serverPort}`);
+			debug(`Webhook listening on port: ${port}`);
 		} catch (error) {
 			this.started = false;
 
@@ -104,27 +109,25 @@ export default class WebhookTransport {
 	public async stop(): Promise<void> {
 		this.started = false;
 
-		if (this.webhookServer !== null) {
+		if (this.webhookServer !== undefined) {
 			const { webhookServer } = this;
 
-			const close = promisify(webhookServer.close).bind(webhookServer);
+			await promisify(webhookServer.close).call(webhookServer);
 
-			await close();
-
-			this.webhookServer = null;
+			this.webhookServer = undefined;
 		}
 	}
 
 	/**
 	 * Returns webhook callback like http[s] or express
 	 */
-	public getWebhookCallback(path: string | null = null): Function {
+	public getWebhookCallback(path?: string): Function {
 		const headers = {
 			connection: 'keep-alive',
 			'content-type': 'text/plain'
 		};
 
-		const checkIsNotValidPath = path !== null
+		const checkIsNotValidPath = path !== undefined
 			? (requestPath: string): boolean => requestPath !== path
 			: (): boolean => false;
 
@@ -135,13 +138,14 @@ export default class WebhookTransport {
 				return;
 			}
 
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const reqBody = (req as typeof req & { body: string | Record<string, any>; }).body;
+
 			let update;
 			try {
-				// @ts-ignore
-				update = typeof req.body !== 'object'
-					? await parseRequestJSON(req, res)
-					// @ts-ignore
-					: req.body;
+				update = typeof reqBody !== 'object'
+					? await parseRequestJSON(req)
+					: reqBody;
 			} catch (e) {
 				debug(e);
 
@@ -149,9 +153,9 @@ export default class WebhookTransport {
 			}
 
 			try {
-				const { webhookSecret, webhookConfirmation } = this.vk.options;
+				const { webhookSecret, webhookConfirmation } = this.options;
 
-				if (webhookSecret !== null && update.secret !== webhookSecret) {
+				if (webhookSecret !== undefined && update.secret !== webhookSecret) {
 					res.writeHead(403);
 					res.end();
 
@@ -159,7 +163,7 @@ export default class WebhookTransport {
 				}
 
 				if (update.type === 'confirmation') {
-					if (webhookConfirmation === null) {
+					if (webhookConfirmation === undefined) {
 						res.writeHead(500);
 						res.end();
 
@@ -200,16 +204,16 @@ export default class WebhookTransport {
 		return async (context: any): Promise<void> => {
 			const update = context.request.body;
 
-			const { webhookSecret, webhookConfirmation } = this.vk.options;
+			const { webhookSecret, webhookConfirmation } = this.options;
 
-			if (webhookSecret !== null && update.secret !== webhookSecret) {
+			if (webhookSecret !== undefined && update.secret !== webhookSecret) {
 				context.status = 403;
 
 				return;
 			}
 
 			if (update.type === 'confirmation') {
-				if (webhookConfirmation === null) {
+				if (webhookConfirmation === undefined) {
 					context.status = 500;
 
 					return;
@@ -224,10 +228,7 @@ export default class WebhookTransport {
 			context.set('connection', 'keep-alive');
 
 			/* Do not delay server response */
-			this.webhookHandler(update).catch((error: Error): void => {
-				// eslint-disable-next-line no-console
-				console.error('Handle webhook update error', error);
-			});
+			setImmediate(() => this.webhookHandler(update));
 		};
 	}
 }

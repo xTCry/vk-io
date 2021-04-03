@@ -1,11 +1,8 @@
-import VK from '../../vk';
+import { Attachment, AttachmentFactoryOptions } from './attachment';
 
-import Attachment from './attachment';
-
-import { copyParams } from '../../utils/helpers';
-import { AttachmentType, inspectCustomData } from '../../utils/constants';
-
-const { POLL } = AttachmentType;
+import { pickProperties } from '../../utils/helpers';
+import { AttachmentType, kSerializeData } from '../../utils/constants';
+import { PhotoAttachment, IPhotoAttachmentPayload } from './photo';
 
 export interface IPollAttachmentPayload {
 	id: number;
@@ -33,22 +30,46 @@ export interface IPollAttachmentPayload {
 		votes: number;
 		rate: number;
 	}[];
-	background?: object[];
-	photo?: object;
+	background?: {
+		id: number;
+		type: 'gradient' | 'tile';
+		angle: number;
+		color: string;
+		width: number;
+		height: number;
+		images: IPhotoAttachmentPayload['sizes'];
+		points: {
+			position: number;
+			color: string;
+		}[];
+	};
+	photo?: IPhotoAttachmentPayload;
 }
 
-export default class PollAttachment extends Attachment<IPollAttachmentPayload> {
+export type PollAttachmentOptions =
+	AttachmentFactoryOptions<IPollAttachmentPayload>;
+
+export class PollAttachment extends Attachment<IPollAttachmentPayload, AttachmentType.POLL | 'poll'> {
+	public photo?: PhotoAttachment;
+
 	/**
 	 * Constructor
 	 */
-	public constructor(payload: IPollAttachmentPayload, vk?: VK) {
-		super(POLL, payload.owner_id, payload.id, payload.access_key);
+	public constructor(options: PollAttachmentOptions) {
+		super({
+			...options,
 
-		// @ts-ignore
-		this.vk = vk;
-		this.payload = payload;
+			type: AttachmentType.POLL
+		});
 
-		this.$filled = 'answers' in payload;
+		this.$filled = this.payload.answers !== undefined;
+
+		if (this.payload.photo) {
+			this.photo = new PhotoAttachment({
+				api: this.api,
+				payload: this.payload.photo
+			});
+		}
 	}
 
 	/**
@@ -59,17 +80,12 @@ export default class PollAttachment extends Attachment<IPollAttachmentPayload> {
 			return;
 		}
 
-		// @ts-ignore
-		const [poll] = await this.vk.api.polls.getById({
+		const poll = await this.api.polls.getById({
 			poll_id: this.id,
 			owner_id: this.ownerId
 		});
 
-		this.payload = poll;
-
-		if (this.payload.access_key) {
-			this.accessKey = this.payload.access_key;
-		}
+		this.payload = (poll as unknown) as IPollAttachmentPayload;
 
 		this.$filled = true;
 	}
@@ -77,9 +93,9 @@ export default class PollAttachment extends Attachment<IPollAttachmentPayload> {
 	/**
 	 * Checks whether the poll is anonymous
 	 */
-	public get isAnonymous(): boolean | null {
+	public get isAnonymous(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.anonymous);
@@ -88,9 +104,9 @@ export default class PollAttachment extends Attachment<IPollAttachmentPayload> {
 	/**
 	 * Checks whether the poll allows multiple choice of answers
 	 */
-	public get isMultiple(): boolean | null {
+	public get isMultiple(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.multiple);
@@ -99,9 +115,9 @@ export default class PollAttachment extends Attachment<IPollAttachmentPayload> {
 	/**
 	 * Checks whether the poll is complete
 	 */
-	public get isClosed(): boolean | null {
+	public get isClosed(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.closed);
@@ -110,9 +126,9 @@ export default class PollAttachment extends Attachment<IPollAttachmentPayload> {
 	/**
 	 * Check whether questions are attached to the discussion
 	 */
-	public get isBoard(): boolean | null {
+	public get isBoard(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.is_board);
@@ -121,9 +137,9 @@ export default class PollAttachment extends Attachment<IPollAttachmentPayload> {
 	/**
 	 * Check if can edit the poll
 	 */
-	public get isCanEdit(): boolean | null {
+	public get isCanEdit(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.can_edit);
@@ -132,9 +148,9 @@ export default class PollAttachment extends Attachment<IPollAttachmentPayload> {
 	/**
 	 * Check if can vote in the survey
 	 */
-	public get isCanVote(): boolean | null {
+	public get isCanVote(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.can_vote);
@@ -143,9 +159,9 @@ export default class PollAttachment extends Attachment<IPollAttachmentPayload> {
 	/**
 	 * Check if can complain about the poll
 	 */
-	public get isCanReport(): boolean | null {
+	public get isCanReport(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.can_report);
@@ -154,9 +170,9 @@ export default class PollAttachment extends Attachment<IPollAttachmentPayload> {
 	/**
 	 * Check if can share a survey
 	 */
-	public get isCanShare(): boolean | null {
+	public get isCanShare(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.can_share);
@@ -165,55 +181,51 @@ export default class PollAttachment extends Attachment<IPollAttachmentPayload> {
 	/**
 	 * Returns the ID of the poll author
 	 */
-	public get authorId(): number | null {
-		return this.payload.author_id || null;
+	public get authorId(): number | undefined {
+		return this.payload.author_id;
 	}
 
 	/**
 	 * Returns the question text
 	 */
-	public get question(): string | null {
-		return this.payload.question || null;
+	public get question(): string | undefined {
+		return this.payload.question;
 	}
 
 	/**
 	 * Returns the date when this poll was created
 	 */
-	public get createdAt(): number | null {
-		return this.payload.created || null;
+	public get createdAt(): number | undefined {
+		return this.payload.created;
 	}
 
 	/**
 	 * Returns the end date of the poll in Unixtime. 0, if the poll is unlimited
 	 */
-	public get endedAt(): number | null {
-		if (!this.$filled) {
-			return null;
-		}
-
-		return this.payload.end_date!;
+	public get endedAt(): number | undefined {
+		return this.payload.end_date;
 	}
 
 	/**
 	 * Returns the number of votes
 	 */
-	public get votes(): number | null {
-		return this.payload.votes || null;
+	public get votes(): number | undefined {
+		return this.payload.votes;
 	}
 
 	/**
 	 * Returns the identifiers of the response options selected by the current user
 	 */
-	public get answerIds(): number[] | null {
-		return this.payload.answer_ids || null;
+	public get answerIds(): number[] | undefined {
+		return this.payload.answer_ids;
 	}
 
 	/**
 	 * Returns the identifiers of 3 friends who voted in the poll
 	 */
-	public get friends(): number[] | null {
+	public get friends(): number[] | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return this.payload.friends || [];
@@ -222,29 +234,22 @@ export default class PollAttachment extends Attachment<IPollAttachmentPayload> {
 	/**
 	 * Returns the information about the options for the answer
 	 */
-	public get answers(): object[] | null {
-		return this.payload.answers || null;
+	public get answers(): IPollAttachmentPayload['answers'] | undefined {
+		return this.payload.answers;
 	}
 
 	/**
 	 * Returns the poll snippet background
 	 */
-	public get background(): object[] | null {
-		return this.payload.background || null;
-	}
-
-	/**
-	 * Returns a photo - the poll snippet background
-	 */
-	public get photo(): object | null {
-		return this.payload.photo || null;
+	public get background(): IPollAttachmentPayload['background'] | undefined {
+		return this.payload.background;
 	}
 
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'authorId',
 			'question',
 			'createdAt',

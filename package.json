@@ -5,33 +5,38 @@
 		"packages/*"
 	],
 	"engines": {
-		"node": ">=8.0.0"
+		"node": ">=12.0.0"
 	},
 	"devDependencies": {
-		"@types/jest": "^24.0.20",
-		"@types/node": "^12.11.7",
-		"@typescript-eslint/eslint-plugin": "^2.5.0",
-		"@typescript-eslint/parser": "^2.5.0",
-		"eslint": "^6.6.0",
-		"eslint-config-airbnb-base": "^14.0.0",
-		"eslint-plugin-import": "^2.18.2",
-		"jest": "^24.9.0",
-		"rollup": "^1.26.0",
-		"rollup-plugin-commonjs": "^10.1.0",
-		"rollup-plugin-json": "^4.0.0",
-		"rollup-plugin-node-resolve": "^5.2.0",
-		"rollup-plugin-typescript2": "^0.24.3",
-		"ts-jest": "^24.1.0",
-		"typescript": "^3.6.4"
+		"@rollup/plugin-json": "^4.1.0",
+		"@types/jest": "^26.0.20",
+		"@types/node": "^14.14.27",
+		"@typescript-eslint/eslint-plugin": "^4.15.0",
+		"@typescript-eslint/parser": "^4.15.0",
+		"@vuepress/plugin-back-to-top": "^1.8.1",
+		"@vuepress/plugin-medium-zoom": "^1.8.1",
+		"eslint": "7.20.0",
+		"eslint-config-airbnb-base": "^14.2.1",
+		"eslint-plugin-import": "^2.22.1",
+		"jest": "^26.6.3",
+		"rollup": "^2.39.0",
+		"rollup-plugin-typescript2": "^0.29.0",
+		"ts-jest": "^26.5.1",
+		"typedoc": "^0.20.24",
+		"typescript": "^4.1.5",
+		"vuepress": "^1.8.1"
 	},
 	"scripts": {
 		"prepare": "yarn run rollup:build && yarn run test",
 		"build": "yarn run rollup:build",
 		"watch": "yarn run rollup:watch",
-		"rollup:build": "rollup -c rollup.config.ts",
+		"clean": "rm -rf ./packages/*/lib",
+		"rollup:build": "NODE_ENV=production rollup -c rollup.config.js",
 		"rollup:watch": "yarn run rollup:build -w",
+		"docs:watch": "vuepress dev docs",
+		"docs:build": "sh scripts/deploy-docs.sh",
 		"test": "yarn run test:jest && yarn run test:eslint",
 		"test:jest": "jest --config jest.config.json --no-cache",
-		"test:eslint": "eslint --ext .ts,.js --ignore-path .gitignore packages/*/src/**/*.{ts,js}"
+		"test:eslint": "eslint --ext .ts --ignore-path .gitignore packages/*/src/**/*.ts"
 	}
 }

@@ -1,7 +1,11 @@
-import Context, { IContextOptions } from './context';
+import { Context, ContextFactoryOptions, ContextDefaultState } from './context';
 
-import { copyParams } from '../../utils/helpers';
-import { inspectCustomData } from '../../utils/constants';
+import { pickProperties } from '../../utils/helpers';
+import { kSerializeData } from '../../utils/constants';
+
+export type VoteContextType = 'vote';
+
+export type VoteContextSubType = 'poll_vote_new';
 
 export interface IVoteContextPayload {
 	poll_id: number;
@@ -11,18 +15,22 @@ export interface IVoteContextPayload {
 }
 
 export type VoteContextOptions<S> =
-	Omit<IContextOptions<IVoteContextPayload, S>, 'type' | 'subTypes'>;
+	ContextFactoryOptions<IVoteContextPayload, S>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default class VoteContext<S = Record<string, any>>
-	extends Context<IVoteContextPayload, S> {
+export class VoteContext<S = ContextDefaultState>
+	extends Context<
+	IVoteContextPayload,
+	S,
+	VoteContextType,
+	VoteContextSubType
+	> {
 	public constructor(options: VoteContextOptions<S>) {
 		super({
 			...options,
 
 			type: 'vote',
 			subTypes: [
-				'pull_vote'
+				options.updateType as VoteContextSubType
 			]
 		});
 	}
@@ -58,8 +66,8 @@ export default class VoteContext<S = Record<string, any>>
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'id',
 			'userId',
 			'ownerId',

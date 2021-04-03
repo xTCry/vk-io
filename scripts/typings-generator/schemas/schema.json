@@ -1,9 +1,33 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "API",
-  "description": "API declaration",
+  "description": "VK API declaration",
   "type": "object",
   "definitions": {
+    "deprecated_from_version": {
+      "type": "string",
+      "description": "Property deprecated from version",
+      "pattern": "^[0-9]+.[0-9]+$"
+    },
+    "from_version": {
+      "type": "string",
+      "description": "Property implemented from version",
+      "pattern": "^[0-9]+.[0-9]+$"
+    },
+    "enum": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "enumNames": {
+      "type": "array",
+      "description": "Enum values text representations",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
     "jsonReference": {
       "type": "object",
       "required": [
@@ -68,6 +92,7 @@
       "properties": {
         "name": {
           "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$",
           "description": "Parameter name"
         },
         "format": {
@@ -96,18 +121,22 @@
             "minimum": {
               "type": "number"
             },
+            "minLength": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "maxLength": {
+              "type": "integer",
+              "minimum": 0
+            },
             "enum": {
               "type": "array",
-              "minItems": 1,
-              "uniqueItems": true
+              "description": "Allowed enumerable values",
+              "$ref": "#/definitions/enum"
             },
             "enumNames": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "minItems": 1,
-              "uniqueItems": true
+              "$ref": "#/definitions/enumNames"
             }
           },
           "oneOf": [
@@ -145,18 +174,14 @@
         },
         "enum": {
           "type": "array",
-          "minItems": 1,
-          "uniqueItems": true
+          "$ref": "#/definitions/enum"
         },
         "enumNames": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "minItems": 1,
-          "uniqueItems": true
+          "$ref": "#/definitions/enumNames"
         },
-        "default": [],
+        "default": {
+          "description": "Default property value"
+        },
         "required": {
           "type": "boolean",
           "default": false
@@ -175,12 +200,10 @@
           "description": "Parameter description"
         },
         "deprecated_from_version": {
-          "type": "string",
-          "description": "Property deprecated from version"
+          "$ref": "#/definitions/deprecated_from_version"
         },
         "from_version": {
-          "type": "string",
-          "description": "Property implemented from version"
+          "$ref": "#/definitions/from_version"
         }
       },
       "required": [
@@ -218,11 +241,20 @@
         "type": {
           "type": "string"
         },
-        "deprecated_from_version": {
+        "description": {
           "type": "string"
         },
+        "deprecated_from_version": {
+          "$ref": "#/definitions/deprecated_from_version"
+        },
         "from_version": {
-          "type": "string"
+          "$ref": "#/definitions/from_version"
+        },
+        "allOf": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/response"
+          }
         },
         "items": {
           "oneOf": [
@@ -260,6 +292,9 @@
             }
           },
           "additionalProperties": false
+        },
+        "additional_properties": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
@@ -267,10 +302,6 @@
     "error": {
       "type": "object",
       "properties": {
-        "name": {
-          "type": "string",
-          "description": "Error name"
-        },
         "code": {
           "type": "integer",
           "description": "Error code",
@@ -280,43 +311,83 @@
           "type": "string",
           "description": "Error description"
         },
+        "subcodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/error_subcode"
+          },
+          "description": "Array of error subcodes"
+        },
+        "global": {
+          "type": "boolean",
+          "default": false
+        },
+        "disabled": {
+          "type": "boolean",
+          "default": false
+        },
         "deprecated_from_version": {
-          "type": "string"
+          "$ref": "#/definitions/deprecated_from_version"
         },
         "from_version": {
-          "type": "string"
+          "$ref": "#/definitions/from_version"
         }
       },
       "required": [
-        "name",
         "code",
         "description"
       ],
       "additionalProperties": false
     },
-    "errors": {
+    "error_subcode": {
+      "type": "object",
+      "properties": {
+        "subcode": {
+          "type": "integer"
+        },
+        "description": {
+          "type": "string"
+        },
+        "$comment": {
+          "type": "string"
+        }
+      }
+    },
+    "methodErrors": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/error"
+        "type": "object",
+        "properties": {
+          "$ref": {
+            "type": "string",
+            "format": "uri-reference"
+          }
+        }
       },
-      "description": "Possible errors"
+      "description": "Possible custom errors"
     },
     "method": {
       "type": "object",
       "properties": {
         "name": {
           "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9.]+$",
           "description": "Method name"
         },
         "description": {
           "type": "string",
           "description": "Method description"
         },
+        "timeout": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        },
         "deprecated_from_version": {
-          "type": "string"
+          "$ref": "#/definitions/deprecated_from_version"
         },
         "from_version": {
-          "type": "string"
+          "$ref": "#/definitions/from_version"
         },
         "access_token_type": {
           "type": "array",
@@ -354,7 +425,7 @@
           "default": false
         },
         "errors": {
-          "$ref": "#/definitions/errors"
+          "$ref": "#/definitions/methodErrors"
         }
       },
       "required": [
@@ -367,7 +438,14 @@
   },
   "properties": {
     "errors": {
-      "$ref": "#/definitions/errors"
+      "type": "object",
+      "patternProperties": {
+        "^[a-z][a-z0-9_]+$": {
+          "$ref": "#/definitions/error"
+        }
+      },
+      "additionalProperties": false,
+      "uniqueProperties": true
     },
     "methods": {
       "type": "array",
@@ -380,13 +458,24 @@
         "^([a-zA-Z0-9_]+)?[rR]esponse$": {
           "$ref": "#/definitions/response"
         }
-      }
+      },
+      "uniqueProperties": true
     },
     "$schema": {
       "type": "string",
       "format": "uri-reference"
     },
     "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "termsOfService": {
+      "type": "string",
+      "format": "url"
+    },
+    "version": {
       "type": "string"
     }
   },

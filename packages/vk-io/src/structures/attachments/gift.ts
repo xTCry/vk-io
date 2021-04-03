@@ -1,24 +1,25 @@
-import VK from '../../vk';
+import { ExternalAttachment, ExternalAttachmentFactoryOptions } from './external';
 
-import ExternalAttachment from './external';
-
-import { AttachmentType, inspectCustomData } from '../../utils/constants';
-
-const { GIFT } = AttachmentType;
+import { AttachmentType, kSerializeData } from '../../utils/constants';
 
 export interface IGiftAttachmentPayload {
 	id: number;
 }
 
-export default class GiftAttachment extends ExternalAttachment<IGiftAttachmentPayload> {
+export type GiftAttachmentOptions =
+	ExternalAttachmentFactoryOptions<IGiftAttachmentPayload>;
+
+export class GiftAttachment
+	extends ExternalAttachment<IGiftAttachmentPayload, AttachmentType.GIFT | 'gift'> {
 	/**
 	 * Constructor
 	 */
-	public constructor(payload: IGiftAttachmentPayload, vk?: VK) {
-		super(GIFT, payload);
+	public constructor(options: GiftAttachmentOptions) {
+		super({
+			...options,
 
-		// @ts-ignore
-		this.vk = vk;
+			type: AttachmentType.GIFT
+		});
 	}
 
 	/**
@@ -31,7 +32,7 @@ export default class GiftAttachment extends ExternalAttachment<IGiftAttachmentPa
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
+	public [kSerializeData](): object {
 		return {
 			id: this.id
 		};

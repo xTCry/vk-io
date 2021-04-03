@@ -1,24 +1,31 @@
-import Context, { IContextOptions } from './context';
+import { Context, ContextFactoryOptions, ContextDefaultState } from './context';
 
-import { copyParams, getPeerType, showDeprecatedMessage } from '../../utils/helpers';
+import { pickProperties, getPeerType } from '../../utils/helpers';
 import {
-	CHAT_PEER,
+	PEER_CHAT_ID_OFFSET,
 
 	UpdateSource,
-	inspectCustomData
+	kSerializeData
 } from '../../utils/constants';
 
 const transformPolling = (
-	{ 1: fromId, 2: toId }: number[],
-	updateType: number
+	{ 1: toId, 2: fromIds }: [number, number, number[]],
+	updateType: number | string
 ): ITypingContextPayload => ({
-	from_id: fromId,
-	to_id: updateType === 62
-		? toId + CHAT_PEER
-		: fromId,
+	from_id: fromIds[0],
+	to_id: toId,
 
-	state: 'typing'
+	state: updateType === 64
+		? 'audiomessage'
+		: 'typing'
 });
+
+export type TypingContextType = 'typing';
+
+export type TypingContextSubType =
+'typing_user'
+| 'typing_group'
+| 'message_typing_state';
 
 export interface ITypingContextPayload {
 	from_id: number;
@@ -27,24 +34,30 @@ export interface ITypingContextPayload {
 }
 
 export type TypingContextOptions<S> =
-	Omit<IContextOptions<ITypingContextPayload, S>, 'type' | 'subTypes'>;
+	ContextFactoryOptions<ITypingContextPayload, S>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default class TypingContext<S = Record<string, any>>
-	extends Context<ITypingContextPayload, S> {
+export class TypingContext<S = ContextDefaultState>
+	extends Context<
+	ITypingContextPayload,
+	S,
+	TypingContextType,
+	TypingContextSubType
+	> {
 	public constructor(options: TypingContextOptions<S>) {
 		super({
 			...options,
 
 			type: 'typing',
 			subTypes: [
-				// @ts-ignore
-				`typing_${getPeerType(options.payload.from_id)}`
+				'message_typing_state',
+				`typing_${getPeerType(options.payload.from_id)}` as TypingContextSubType
 			],
 
 			payload: options.source === UpdateSource.POLLING
-				// @ts-ignore
-				? transformPolling(options.payload as [number, number, number], options.updateType)
+				? transformPolling(
+					(options.payload as unknown) as [number, number, number[]],
+					options.updateType
+				)
 				: options.payload
 		});
 	}
@@ -81,7 +94,7 @@ export default class TypingContext<S = Record<string, any>>
 	 * Checks that the message is typed in the chat
 	 */
 	public get isChat(): boolean {
-		return this.chatId !== null;
+		return this.chatId !== undefined;
 	}
 
 	/**
@@ -99,39 +112,21 @@ export default class TypingContext<S = Record<string, any>>
 	}
 
 	/**
-	 * @deprecated
-	 */
-	public get peerId(): number {
-		showDeprecatedMessage('TypingContext, use toId instead of peerId');
-
-		return this.toId;
-	}
-
-	/**
-	 * @deprecated
-	 */
-	public get userId(): number {
-		showDeprecatedMessage('TypingContext, use fromId instead of userId');
-
-		return this.fromId;
-	}
-
-	/**
 	 * Returns the identifier chat
 	 */
-	public get chatId(): number | null {
-		const chatId = this.toId - CHAT_PEER;
+	public get chatId(): number | undefined {
+		const chatId = this.toId - PEER_CHAT_ID_OFFSET;
 
 		return chatId > 0
 			? chatId
-			: null;
+			: undefined;
 	}
 
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'fromId',
 			'toId',
 			'chatId',

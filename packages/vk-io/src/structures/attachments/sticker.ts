@@ -1,11 +1,7 @@
-import VK from '../../vk';
+import { ExternalAttachment, ExternalAttachmentFactoryOptions } from './external';
 
-import ExternalAttachment from './external';
-
-import { copyParams } from '../../utils/helpers';
-import { AttachmentType, inspectCustomData } from '../../utils/constants';
-
-const { STICKER } = AttachmentType;
+import { pickProperties } from '../../utils/helpers';
+import { AttachmentType, kSerializeData } from '../../utils/constants';
 
 export interface IStickerImage {
 	url: string;
@@ -20,15 +16,20 @@ export interface IStickerAttachmentPayload {
 	images_with_background: IStickerImage[];
 }
 
-export default class StickerAttachment extends ExternalAttachment<IStickerAttachmentPayload> {
+export type StickerAttachmentOptions =
+	ExternalAttachmentFactoryOptions<IStickerAttachmentPayload>;
+
+export class StickerAttachment
+	extends ExternalAttachment<IStickerAttachmentPayload, AttachmentType.STICKER | 'sticker'> {
 	/**
 	 * Constructor
 	 */
-	public constructor(payload: IStickerAttachmentPayload, vk?: VK) {
-		super(STICKER, payload);
+	public constructor(options: StickerAttachmentOptions) {
+		super({
+			...options,
 
-		// @ts-ignore
-		this.vk = vk;
+			type: AttachmentType.STICKER
+		});
 	}
 
 	/**
@@ -62,8 +63,8 @@ export default class StickerAttachment extends ExternalAttachment<IStickerAttach
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'id',
 			'productId',
 			'images',

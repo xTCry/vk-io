@@ -1,11 +1,7 @@
-import VK from '../../vk';
+import { Attachment, AttachmentFactoryOptions } from './attachment';
 
-import Attachment from './attachment';
-
-import { copyParams } from '../../utils/helpers';
-import { AttachmentType, inspectCustomData } from '../../utils/constants';
-
-const { AUDIO_MESSAGE } = AttachmentType;
+import { pickProperties } from '../../utils/helpers';
+import { AttachmentType, kSerializeData } from '../../utils/constants';
 
 export interface IAudioMessageAttachmentPayload {
 	id: number;
@@ -18,18 +14,22 @@ export interface IAudioMessageAttachmentPayload {
 	link_mp3?: string;
 }
 
-export default class AudioMessageAttachment extends Attachment<IAudioMessageAttachmentPayload> {
+export type AudioMessageAttachmentOptions =
+	AttachmentFactoryOptions<IAudioMessageAttachmentPayload>;
+
+export class AudioMessageAttachment
+	extends Attachment<IAudioMessageAttachmentPayload, AttachmentType.AUDIO_MESSAGE | 'audio_message'> {
 	/**
 	 * Constructor
 	 */
-	public constructor(payload: IAudioMessageAttachmentPayload, vk?: VK) {
-		super(AUDIO_MESSAGE, payload.owner_id, payload.id, payload.access_key);
+	public constructor(options: AudioMessageAttachmentOptions) {
+		super({
+			...options,
 
-		// @ts-ignore
-		this.vk = vk;
-		this.payload = payload;
+			type: AttachmentType.AUDIO_MESSAGE
+		});
 
-		this.$filled = 'duration' in payload;
+		this.$filled = this.payload.duration !== undefined;
 	}
 
 	/**
@@ -40,17 +40,11 @@ export default class AudioMessageAttachment extends Attachment<IAudioMessageAtta
 			return;
 		}
 
-		// @ts-ignore
-		const [document] = await this.vk.api.docs.getById({
+		const [document] = await this.api.docs.getById({
 			docs: `${this.ownerId}_${this.id}`
 		});
 
-		// @ts-ignore
 		this.payload = document;
-
-		if (this.payload.access_key) {
-			this.accessKey = this.payload.access_key;
-		}
 
 		this.$filled = true;
 	}
@@ -58,56 +52,48 @@ export default class AudioMessageAttachment extends Attachment<IAudioMessageAtta
 	/**
 	 * Returns the duration of the audio message
 	 */
-	public get duration(): number | null{
-		if (!this.$filled) {
-			return null;
-		}
-
-		return this.payload.duration!;
+	public get duration(): number | undefined {
+		return this.payload.duration;
 	}
 
 	/**
 	 * Returns the waveform of the audio message
 	 */
-	public get waveform(): number[] | null {
-		return this.payload.waveform || null;
+	public get waveform(): number[] | undefined {
+		return this.payload.waveform;
 	}
 
 	/**
 	 * Returns the ogg URL of the audio message
 	 */
-	public get oggUrl(): string | null {
-		return this.payload.link_ogg || null;
+	public get oggUrl(): string | undefined {
+		return this.payload.link_ogg;
 	}
 
 	/**
 	 * Returns the mp3 URL of the audio message
 	 */
-	public get mp3Url(): string | null {
-		return this.payload.link_mp3 || null;
+	public get mp3Url(): string | undefined {
+		return this.payload.link_mp3;
 	}
 
 	/**
 	 * Returns the URL of the audio message
 	 */
-	public get url(): string | null {
+	public get url(): string | undefined {
 		return this.mp3Url || this.oggUrl;
 	}
 
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
-		const payload = copyParams(this, [
+	public [kSerializeData](): object {
+		const payload = pickProperties(this, [
 			'duration',
-			'waveform',
 			'oggUrl',
 			'mp3Url',
 			'url'
 		]);
-
-		// @ts-ignore
-		payload.waveform = `[...${this.waveform.length} elements]`;
 
 		return payload;
 	}

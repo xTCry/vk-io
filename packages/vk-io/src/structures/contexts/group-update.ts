@@ -1,33 +1,17 @@
-import Context, { IContextOptions } from './context';
+import { Context, ContextFactoryOptions, ContextDefaultState } from './context';
 
-import {
-	Attachment,
-	ExternalAttachment,
+import { Attachmentable } from '../shared/attachmentable';
+import { PhotoAttachment, IPhotoAttachmentPayload } from '../attachments';
 
-	AudioAttachment,
-	AudioMessageAttachment,
-	DocumentAttachment,
-	GiftAttachment,
-	GraffitiAttachment,
-	LinkAttachment,
-	MarketAlbumAttachment,
-	MarketAttachment,
-	PhotoAttachment,
-	PollAttachment,
-	StickerAttachment,
-	StoryAttachment,
-	VideoAttachment,
-	WallReplyAttachment,
-	WallAttachment
-} from '../attachments';
-import { copyParams } from '../../utils/helpers';
-import { inspectCustomData, AttachmentType } from '../../utils/constants';
+import { kSerializeData } from '../../utils/constants';
+import { pickProperties, applyMixins } from '../../utils/helpers';
 
-const subTypes: Record<string, string> = {
-	group_change_photo: 'group_update_photo',
-	group_update_officers: 'group_update_officers',
-	group_change_settings: 'group_update_settings'
-};
+export type GroupUpdateContextType = 'group_update';
+
+export type GroupUpdateContextSubType =
+'group_change_photo'
+| 'group_officers_edit'
+| 'group_change_settings';
 
 export interface IGroupUpdateContextPayload {
 	user_id: number;
@@ -35,30 +19,33 @@ export interface IGroupUpdateContextPayload {
 	level_old?: number;
 	level_new?: number;
 	changes?: Record<string, { old_value: string; new_value: string }>;
-	photo?: object;
+	photo?: IPhotoAttachmentPayload;
 }
 
 export type GroupUpdateContextOptions<S> =
-	Omit<IContextOptions<IGroupUpdateContextPayload, S>, 'type' | 'subTypes'>;
+	ContextFactoryOptions<IGroupUpdateContextPayload, S>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default class GroupUpdateContext<S = Record<string, any>>
-	extends Context<IGroupUpdateContextPayload, S> {
-	public attachments: Attachment[];
-
+class GroupUpdateContext<S = ContextDefaultState>
+	extends Context<
+	IGroupUpdateContextPayload,
+	S,
+	GroupUpdateContextType,
+	GroupUpdateContextSubType> {
 	public constructor(options: GroupUpdateContextOptions<S>) {
 		super({
 			...options,
 
 			type: 'group_update',
 			subTypes: [
-				subTypes[options.updateType]
+				options.updateType as GroupUpdateContextSubType
 			]
 		});
 
 		this.attachments = options.updateType === 'group_change_photo'
-			// @ts-ignore
-			? [new PhotoAttachment(this.payload.photo, this.vk)]
+			? [new PhotoAttachment({
+				api: this.api,
+				payload: this.payload.photo!
+			})]
 			: [];
 	}
 
@@ -66,41 +53,28 @@ export default class GroupUpdateContext<S = Record<string, any>>
 	 * Checks is change photo
 	 */
 	public get isChangePhoto(): boolean {
-		return this.subTypes.includes('group_update_photo');
+		return this.subTypes.includes('group_change_photo');
 	}
 
 	/**
 	 * Checks is change officers
 	 */
 	public get isChangeOfficers(): boolean {
-		return this.subTypes.includes('group_update_officers');
+		return this.subTypes.includes('group_officers_edit');
 	}
 
 	/**
 	 * Checks is change settings
 	 */
 	public get isChangeSettings(): boolean {
-		return this.subTypes.includes('group_update_settings');
-	}
-
-	/**
-	 * Checks for the presence of attachments
-	 */
-	public hasAttachments(type: AttachmentType | string | null = null): boolean {
-		if (type === null) {
-			return this.attachments.length > 0;
-		}
-
-		return this.attachments.some(attachment => (
-			attachment.type === type
-		));
+		return this.subTypes.includes('group_change_settings');
 	}
 
 	/**
 	 * Returns the identifier admin
 	 */
-	public get adminId(): number | null {
-		return this.payload.admin_id || null;
+	public get adminId(): number | undefined {
+		return this.payload.admin_id;
 	}
 
 	/**
@@ -113,73 +87,29 @@ export default class GroupUpdateContext<S = Record<string, any>>
 	/**
 	 * Returns the old level permission
 	 */
-	public get oldLevel(): number | null {
-		return this.payload.level_old || null;
+	public get oldLevel(): number | undefined {
+		return this.payload.level_old;
 	}
 
 	/**
 	 * Returns the new level permission
 	 */
-	public get newLevel(): number | null {
-		return this.payload.level_new || null;
+	public get newLevel(): number | undefined {
+		return this.payload.level_new;
 	}
 
 	/**
 	 * Returns the changes settings
 	 */
-	public get changes(): Record<string, { old_value: string; new_value: string }> | null {
-		return this.payload.changes || null;
-	}
-
-	/**
-	 * Returns the attachments
-	 */
-	public getAttachments(type: AttachmentType.AUDIO | 'audio'): AudioAttachment[];
-
-	public getAttachments(type: AttachmentType.AUDIO_MESSAGE | 'audio_message'): AudioMessageAttachment[];
-
-	public getAttachments(type: AttachmentType.GRAFFITI | 'graffiti'): GraffitiAttachment[];
-
-	// @ts-ignore
-	public getAttachments(type: AttachmentType.DOCUMENT | 'doc'): DocumentAttachment[];
-
-	public getAttachments(type: AttachmentType.MARKET_ALBUM | 'market_album'): MarketAlbumAttachment[];
-
-	public getAttachments(type: AttachmentType.MARKET | 'market'): MarketAttachment[];
-
-	public getAttachments(type: AttachmentType.PHOTO | 'photo'): PhotoAttachment[];
-
-	public getAttachments(type: AttachmentType.STORY | 'story'): StoryAttachment[];
-
-	public getAttachments(type: AttachmentType.VIDEO | 'video'): VideoAttachment[];
-
-	public getAttachments(type: AttachmentType.WALL | 'wall'): WallAttachment[];
-
-	public getAttachments(type: AttachmentType.POLL | 'poll'): PollAttachment[];
-
-	public getAttachments(type: AttachmentType.GIFT | 'gift'): GiftAttachment[];
-
-	public getAttachments(type: AttachmentType.LINK | 'link'): LinkAttachment[];
-
-	public getAttachments(type: AttachmentType.STICKER | 'sticker'): StickerAttachment[];
-
-	public getAttachments(type: AttachmentType.WALL_REPLY | 'wall_reply'): WallReplyAttachment[];
-
-	public getAttachments(type: string | null = null): (Attachment | ExternalAttachment)[] {
-		if (type === null) {
-			return this.attachments;
-		}
-
-		return this.attachments.filter(attachment => (
-			attachment.type === type
-		));
+	public get changes(): Record<string, { old_value: string; new_value: string }> | undefined {
+		return this.payload.changes;
 	}
 
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'adminId',
 			'userId',
 			'oldLevel',
@@ -189,3 +119,9 @@ export default class GroupUpdateContext<S = Record<string, any>>
 		]);
 	}
 }
+
+// eslint-disable-next-line
+interface GroupUpdateContext extends Attachmentable {}
+applyMixins(GroupUpdateContext, [Attachmentable]);
+
+export { GroupUpdateContext };

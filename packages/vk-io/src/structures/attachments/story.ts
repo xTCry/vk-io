@@ -1,13 +1,9 @@
-import VK from '../../vk';
+import { Attachment, AttachmentFactoryOptions } from './attachment';
 
-import Attachment from './attachment';
-
-import { copyParams } from '../../utils/helpers';
-import { AttachmentType, inspectCustomData } from '../../utils/constants';
-import PhotoAttachment, { IPhotoAttachmentPayload } from './photo';
-import VideoAttachment, { IVideoAttachmentPayload } from './video';
-
-const { STORY } = AttachmentType;
+import { pickProperties } from '../../utils/helpers';
+import { AttachmentType, kSerializeData } from '../../utils/constants';
+import { PhotoAttachment, IPhotoAttachmentPayload } from './photo';
+import { VideoAttachment, IVideoAttachmentPayload } from './video';
 
 export interface IStoryAttachmentPayload {
 	id: number;
@@ -69,24 +65,29 @@ const kPhoto = Symbol('photo');
 
 const kParentStory = Symbol('parentStory');
 
-export default class StoryAttachment extends Attachment<IStoryAttachmentPayload> {
-	protected [kVideo]?: VideoAttachment;
+export type StoryAttachmentOptions =
+	AttachmentFactoryOptions<IStoryAttachmentPayload>;
 
-	protected [kPhoto]?: PhotoAttachment;
+export class StoryAttachment extends Attachment<IStoryAttachmentPayload, AttachmentType.STORY | 'story'> {
+	protected [kPhoto]: PhotoAttachment | undefined;
 
-	protected [kParentStory]?: StoryAttachment;
+	protected [kVideo]: VideoAttachment | undefined;
+
+	protected [kParentStory]: StoryAttachment | undefined;
 
 	/**
 	 * Constructor
 	 */
-	public constructor(payload: IStoryAttachmentPayload, vk?: VK) {
-		super(STORY, payload.owner_id, payload.id, payload.access_key);
+	public constructor(options: StoryAttachmentOptions) {
+		super({
+			...options,
 
-		// @ts-ignore
-		this.vk = vk;
-		this.payload = payload;
+			type: AttachmentType.STORY
+		});
 
-		this.$filled = 'is_deleted' in payload || 'is_expired' in payload;
+		this.applyPayload(options.payload);
+
+		this.$filled = this.payload.is_deleted !== undefined || this.payload.is_expired !== undefined;
 	}
 
 	/**
@@ -97,17 +98,12 @@ export default class StoryAttachment extends Attachment<IStoryAttachmentPayload>
 			return;
 		}
 
-		// @ts-ignore
-		const [story] = await this.vk.api.stories.getById({
+		const { items: [story] } = await this.api.stories.getById({
 			stories: `${this.ownerId}_${this.id}`,
 			extended: 0
 		});
 
-		this.payload = story;
-
-		if (this.payload.access_key) {
-			this.accessKey = this.payload.access_key;
-		}
+		this.applyPayload(story as IStoryAttachmentPayload);
 
 		this.$filled = true;
 	}
@@ -181,30 +177,14 @@ export default class StoryAttachment extends Attachment<IStoryAttachmentPayload>
 	 * Returns the story photo
 	 */
 	public get photo(): PhotoAttachment | undefined {
-		if (!this.$filled) {
-			return undefined;
-		}
-
-		if (!this[kPhoto]) {
-			this[kPhoto] = new PhotoAttachment(this.payload.photo!, this.vk);
-		}
-
-		return this[kPhoto]!;
+		return this[kPhoto];
 	}
 
 	/**
 	 * Returns the story video
 	 */
 	public get video(): VideoAttachment | undefined {
-		if (!this.$filled) {
-			return undefined;
-		}
-
-		if (!this[kVideo]) {
-			this[kVideo] = new VideoAttachment(this.payload.video!, this.vk);
-		}
-
-		return this[kVideo]!;
+		return this[kVideo];
 	}
 
 	/**
@@ -260,14 +240,6 @@ export default class StoryAttachment extends Attachment<IStoryAttachmentPayload>
 	 * Returns the parent story
 	 */
 	public get parentStory(): StoryAttachment | undefined {
-		if (!this.$filled) {
-			return undefined;
-		}
-
-		if (!this[kParentStory]) {
-			this[kParentStory] = new StoryAttachment(this.payload.parent_story!, this.vk);
-		}
-
 		return this[kParentStory];
 	}
 
@@ -279,24 +251,51 @@ export default class StoryAttachment extends Attachment<IStoryAttachmentPayload>
 	}
 
 	/**
+	 * Applies the payload
+	 */
+	private applyPayload(payload: IStoryAttachmentPayload): void {
+		this.payload = payload;
+
+		if (payload.photo) {
+			this[kPhoto] = new PhotoAttachment({
+				api: this.api,
+				payload: payload.photo
+			});
+		}
+
+		if (payload.video) {
+			this[kVideo] = new VideoAttachment({
+				api: this.api,
+				payload: payload.video
+			});
+		}
+
+		if (payload.parent_story) {
+			this[kParentStory] = new StoryAttachment({
+				api: this.api,
+				payload: payload.parent_story
+			});
+		}
+	}
+
+	/**
 	 * Returns the custom data
 	 */
-	// @ts-ignore
-	public [inspectCustomData](): object | undefined {
+	public [kSerializeData](): object {
 		if (this.isDeleted) {
-			return copyParams(this, [
+			return pickProperties(this, [
 				'isDeleted'
 			]);
 		}
 
 		if (this.isExpired) {
-			return copyParams(this, [
+			return pickProperties(this, [
 				'isExpired',
 				'expiresAt'
 			]);
 		}
 
-		return copyParams(this, [
+		return pickProperties(this, [
 			'isExpired',
 			'isDeleted',
 			'isSeen',

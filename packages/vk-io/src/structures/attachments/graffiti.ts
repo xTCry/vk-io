@@ -1,11 +1,7 @@
-import VK from '../../vk';
+import { Attachment, AttachmentFactoryOptions } from './attachment';
 
-import Attachment from './attachment';
-
-import { copyParams } from '../../utils/helpers';
-import { AttachmentType, inspectCustomData } from '../../utils/constants';
-
-const { GRAFFITI } = AttachmentType;
+import { pickProperties } from '../../utils/helpers';
+import { AttachmentType, kSerializeData } from '../../utils/constants';
 
 export interface IGraffitiAttachmentPayload {
 	id: number;
@@ -17,18 +13,22 @@ export interface IGraffitiAttachmentPayload {
 	url?: string;
 }
 
-export default class GraffitiAttachment extends Attachment<IGraffitiAttachmentPayload> {
+export type GraffitiAttachmentOptions =
+	AttachmentFactoryOptions<IGraffitiAttachmentPayload>;
+
+export class GraffitiAttachment
+	extends Attachment<IGraffitiAttachmentPayload, AttachmentType.GRAFFITI | 'graffiti'> {
 	/**
 	 * Constructor
 	 */
-	public constructor(payload: IGraffitiAttachmentPayload, vk?: VK) {
-		super(GRAFFITI, payload.owner_id, payload.id, payload.access_key);
+	public constructor(options: GraffitiAttachmentOptions) {
+		super({
+			...options,
 
-		// @ts-ignore
-		this.vk = vk;
-		this.payload = payload;
+			type: AttachmentType.GRAFFITI
+		});
 
-		this.$filled = 'url' in payload;
+		this.$filled = this.payload.url !== undefined;
 	}
 
 	/**
@@ -39,17 +39,11 @@ export default class GraffitiAttachment extends Attachment<IGraffitiAttachmentPa
 			return;
 		}
 
-		// @ts-ignore
-		const [document] = await this.vk.api.docs.getById({
+		const [document] = await this.api.docs.getById({
 			docs: `${this.ownerId}_${this.id}`
 		});
 
-		// @ts-ignore
 		this.payload = document;
-
-		if (this.payload.access_key) {
-			this.accessKey = this.payload.access_key;
-		}
 
 		this.$filled = true;
 	}
@@ -57,29 +51,29 @@ export default class GraffitiAttachment extends Attachment<IGraffitiAttachmentPa
 	/**
 	 * Returns the graffiti height
 	 */
-	public get height(): number | null {
-		return this.payload.height || null;
+	public get height(): number | undefined {
+		return this.payload.height;
 	}
 
 	/**
 	 * Returns the graffiti width
 	 */
-	public get width(): number | null {
-		return this.payload.width || null;
+	public get width(): number | undefined {
+		return this.payload.width;
 	}
 
 	/**
 	 * Returns the URL of the document
 	 */
-	public get url(): string | null {
-		return this.payload.url || null;
+	public get url(): string | undefined {
+		return this.payload.url;
 	}
 
 	/**
 	 * Returns the custom data
 	 */
-	public [inspectCustomData](): object {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'height',
 			'width',
 			'url'

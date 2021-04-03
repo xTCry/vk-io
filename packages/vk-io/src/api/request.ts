@@ -1,15 +1,27 @@
-import { inspect } from 'util';
+import fetch from 'node-fetch';
+import { AbortController } from 'abort-controller';
 
+import { inspectable } from 'inspectable';
+
+import { API } from './api';
 import { getExecuteMethod } from '../utils/helpers';
 import { ICallbackServiceValidate } from '../utils/callback-service';
 
-export default class Request {
+export interface IAPIRequestOptions {
+	api: API;
+
+	method: string;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	params: Record<string, any>;
+}
+
+export class APIRequest {
 	public method: string;
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	public params: Record<string, any>;
 
-	public attempts = 0;
+	public retries = 0;
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	public promise: Promise<any>;
@@ -20,11 +32,14 @@ export default class Request {
 
 	public captchaValidate?: ICallbackServiceValidate;
 
+	protected api: API;
+
 	/**
 	 * Constructor
 	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public constructor(method: string, params: Record<string, any> = {}) {
+	public constructor({ api, method, params = {} }: IAPIRequestOptions) {
+		this.api = api;
+
 		this.method = method;
 		this.params = { ...params };
 
@@ -42,15 +57,6 @@ export default class Request {
 	}
 
 	/**
-	 * Adds attempt
-	 */
-	public addAttempt(): number {
-		this.attempts += 1;
-
-		return this.attempts;
-	}
-
-	/**
 	 * Returns string to execute
 	 */
 	public toString(): string {
@@ -58,15 +64,57 @@ export default class Request {
 	}
 
 	/**
-	 * Custom inspect object
+	 * Sends a request to the server
 	 */
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public [inspect.custom](depth: number, options: Record<string, any>): string {
-		const { name } = this.constructor;
-		const { method, params, promise } = this;
+	public async make(): Promise<any> {
+		const { options } = this.api;
 
-		const payload = { method, params, promise };
+		const params: APIRequest['params'] = {
+			access_token: options.token,
+			v: options.apiVersion,
 
-		return `${options.stylize(name, 'special')} ${inspect(payload, options)}`;
+			...this.params
+		};
+
+		if (options.language !== undefined) {
+			params.lang = options.language;
+		}
+
+		const controller = new AbortController();
+
+		const timeout = setTimeout(() => controller.abort(), options.apiTimeout);
+
+		try {
+			const response = await fetch(`${options.apiBaseUrl}/${this.method}`, {
+				method: 'POST',
+				compress: false,
+				agent: options.agent,
+				signal: controller.signal,
+				headers: {
+					...options.apiHeaders,
+
+					connection: 'keep-alive'
+				},
+				// @ts-expect-error
+				body: new URLSearchParams(
+					Object.entries(params)
+						.filter(({ 1: value }) => value !== undefined)
+				)
+			});
+
+			const result = await response.json();
+
+			return result;
+		} finally {
+			clearTimeout(timeout);
+		}
 	}
 }
+
+inspectable(APIRequest, {
+	serialize: ({ method, params }) => ({
+		method,
+		params
+	})
+});

@@ -1,19 +1,33 @@
-// @ts-ignore
 import fetch from 'node-fetch';
+import FormData from 'form-data';
+import { AbortController } from 'abort-controller';
+
+import { inspectable } from 'inspectable';
 
 import { URL } from 'url';
-import { Readable } from 'stream';
-import { randomBytes } from 'crypto';
+import { promisify } from 'util';
 import { createReadStream } from 'fs';
-import { inspect, deprecate } from 'util';
+import { globalAgent } from 'https';
 
-import VK from '../vk';
-import MultipartStream from './multipart-stream';
+import { API } from '../api';
 import { UploadError, UploadErrorCode } from '../errors';
-import { isStream, copyParams, streamToBuffer } from './helpers';
 import { DefaultExtension, DefaultContentType } from '../utils/constants';
+import {
+	IUploadOptions,
+	IUploadParams,
+	IUploadSourceMedia,
+	IUploadConduct
+} from './types';
+import {
+	isStream,
+
+	normalizeSource,
+	pickExistingProperties,
+	streamToBuffer
+} from './helpers';
 
 import {
+	StoryAttachment,
 	PhotoAttachment,
 	AudioAttachment,
 	VideoAttachment,
@@ -31,100 +45,6 @@ const {
 
 const isURL = /^https?:\/\//i;
 
-/**
- * Stream, buffer, url or file path
- */
-export type UploadSourceType = Readable | Buffer | string;
-
-export type UploadSourceValue = UploadSourceType | {
-	value: UploadSourceType;
-
-	contentType?: string;
-	filename?: string;
-};
-
-export interface IUploadSourceParams {
-	values: UploadSourceValue[] | UploadSourceValue;
-
-	uploadUrl?: string;
-	timeout?: number;
-}
-
-export type UploadSource = IUploadSourceParams | UploadSourceValue[] | UploadSourceValue;
-
-export interface IUploadParams {
-	source: UploadSource;
-}
-
-export interface IUploadConduct {
-	/**
-	 * Field name
-	 */
-	field: string;
-	/**
-	 * Upload params
-	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	params: IUploadParams & Record<string, any>;
-
-	/**
-	 * Get server functions
-	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	getServer: (params: Record<string, any>) => { upload_url: string };
-	/**
-	 * Copies server params
-	 */
-	serverParams?: string[];
-
-	/**
-	 * Save files functions
-	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	saveFiles: (params: Record<string, any>) => Record<string, any>;
-	/**
-	 * Copies save params
-	 */
-	saveParams?: string[];
-
-	/**
-	 * Max uploaded files for one request
-	 */
-	maxFiles: number;
-	/**
-	 * Attachment type
-	 */
-	attachmentType?: string;
-
-	/**
-	 * Download exclusively in Buffer
-	 */
-	forceBuffer?: boolean;
-}
-
-export interface IStoryObject {
-	id: number;
-	owner_id: number;
-	date: number;
-	is_expired: boolean;
-	is_deleted: boolean;
-	can_see: number;
-	seen: number;
-	type: number;
-	photo: object;
-	video: object;
-	link: object;
-	parent_story_owner_id: number;
-	parent_story_id: number;
-	parent_story: IStoryObject;
-	replies: object;
-	can_reply: number;
-	can_share: number;
-	can_comment: number;
-	views: number;
-	access_key: string;
-}
-
 const DocumentTypes: Record<string, typeof DocumentAttachment
 | typeof GraffitiAttachment
 | typeof AudioMessageAttachment> = {
@@ -133,25 +53,24 @@ const DocumentTypes: Record<string, typeof DocumentAttachment
 	audio_message: AudioMessageAttachment
 };
 
-export default class Upload {
-	private vk: VK;
+export class Upload {
+	private api: API;
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public graffiti: (params: object) => Promise<any>;
+	protected options: Required<Omit<IUploadOptions, 'api'>>;
 
 	/**
 	 * Constructor
 	 */
-	constructor(vk: VK) {
-		this.vk = vk;
+	constructor({ api, ...options }: IUploadOptions) {
+		this.api = api;
 
-		this.graffiti = deprecate(
-			params => (
-				// @ts-ignore
-				this.messageGraffiti(params)
-			),
-			'graffiti(params) is deprecated, use messageGraffiti(params) instead'
-		);
+		this.options = {
+			// 20 ms
+			agent: globalAgent,
+			uploadTimeout: 20_000,
+
+			...options
+		};
 	}
 
 	/**
@@ -178,21 +97,21 @@ export default class Upload {
 			field: 'file',
 			params,
 
-			// @ts-ignore
-			getServer: this.vk.api.photos.getUploadServer,
+			getServer: this.api.photos.getUploadServer,
 			serverParams: ['album_id', 'group_id'],
 
-			// @ts-ignore
-			saveFiles: this.vk.api.photos.save,
+			saveFiles: this.api.photos.save,
 			saveParams: ['album_id', 'group_id', 'latitude', 'longitude', 'caption'],
 
 			maxFiles: 5,
 			attachmentType: 'photo'
-		});
+		}) as PhotoAttachment['payload'][];
 
-		// @ts-ignore
 		return photos.map(photo => (
-			new PhotoAttachment(photo, this.vk)
+			new PhotoAttachment({
+				api: this.api,
+				payload: photo
+			})
 		));
 	}
 
@@ -213,19 +132,20 @@ export default class Upload {
 			field: 'photo',
 			params,
 
-			// @ts-ignore
-			getServer: this.vk.api.photos.getWallUploadServer,
+			getServer: this.api.photos.getWallUploadServer,
 			serverParams: ['group_id'],
 
-			// @ts-ignore
-			saveFiles: this.vk.api.photos.saveWallPhoto,
+			saveFiles: this.api.photos.saveWallPhoto,
 			saveParams: ['user_id', 'group_id', 'latitude', 'longitude', 'caption'],
 
 			maxFiles: 1,
 			attachmentType: 'photo'
 		});
 
-		return new PhotoAttachment(photo, this.vk);
+		return new PhotoAttachment({
+			api: this.api,
+			payload: photo
+		});
 	}
 
 	/**
@@ -247,12 +167,10 @@ export default class Upload {
 			field: 'photo',
 			params,
 
-			// @ts-ignore
-			getServer: this.vk.api.photos.getOwnerPhotoUploadServer,
+			getServer: this.api.photos.getOwnerPhotoUploadServer,
 			serverParams: ['owner_id'],
 
-			// @ts-ignore
-			saveFiles: this.vk.api.photos.saveOwnerPhoto,
+			saveFiles: this.api.photos.saveOwnerPhoto,
 
 			maxFiles: 1,
 			attachmentType: 'photo'
@@ -280,18 +198,19 @@ export default class Upload {
 			field: 'photo',
 			params,
 
-			// @ts-ignore
-			getServer: this.vk.api.photos.getMessagesUploadServer,
+			getServer: this.api.photos.getMessagesUploadServer,
 			serverParams: ['peer_id'],
 
-			// @ts-ignore
-			saveFiles: this.vk.api.photos.saveMessagesPhoto,
+			saveFiles: this.api.photos.saveMessagesPhoto,
 
 			maxFiles: 1,
 			attachmentType: 'photo'
 		});
 
-		return new PhotoAttachment(photo, this.vk);
+		return new PhotoAttachment({
+			api: this.api,
+			payload: photo
+		});
 	}
 
 	/**
@@ -313,13 +232,11 @@ export default class Upload {
 			field: 'file',
 			params,
 
-			// @ts-ignore
-			getServer: this.vk.api.photos.getChatUploadServer,
+			getServer: this.api.photos.getChatUploadServer,
 			serverParams: ['chat_id', 'crop_x', 'crop_y', 'crop_width'],
 
 			saveFiles: file => (
-				// @ts-ignore
-				this.vk.api.messages.setChatPhoto({ file })
+				this.api.messages.setChatPhoto({ file })
 			),
 
 			maxFiles: 1,
@@ -397,19 +314,20 @@ export default class Upload {
 			field: 'file',
 			params,
 
-			// @ts-ignore
-			getServer: this.vk.api.photos.getMarketUploadServer,
+			getServer: this.api.photos.getMarketUploadServer,
 			serverParams: ['group_id', 'main_photo', 'crop_x', 'crop_y', 'crop_width'],
 
-			// @ts-ignore
-			saveFiles: this.vk.api.photos.saveMarketPhoto,
+			saveFiles: this.api.photos.saveMarketPhoto,
 			saveParams: ['group_id'],
 
 			maxFiles: 1,
 			attachmentType: 'photo'
 		});
 
-		return new PhotoAttachment(photo, this.vk);
+		return new PhotoAttachment({
+			api: this.api,
+			payload: photo
+		});
 	}
 
 	/**
@@ -424,19 +342,20 @@ export default class Upload {
 			field: 'file',
 			params,
 
-			// @ts-ignore
-			getServer: this.vk.api.photos.getMarketAlbumUploadServer,
+			getServer: this.api.photos.getMarketAlbumUploadServer,
 			serverParams: ['group_id'],
 
-			// @ts-ignore
-			saveFiles: this.vk.api.photos.saveMarketAlbumPhoto,
+			saveFiles: this.api.photos.saveMarketAlbumPhoto,
 			saveParams: ['group_id'],
 
 			maxFiles: 1,
 			attachmentType: 'photo'
 		});
 
-		return new PhotoAttachment(photo, this.vk);
+		return new PhotoAttachment({
+			api: this.api,
+			payload: photo
+		});
 	}
 
 	/**
@@ -452,18 +371,21 @@ export default class Upload {
 			field: 'file',
 			params,
 
-			// @ts-ignore
-			getServer: this.vk.api.audio.getUploadServer,
+			// @ts-expect-error
+			getServer: this.api.audio.getUploadServer,
 
-			// @ts-ignore
-			saveFiles: this.vk.api.audio.save,
+			// @ts-expect-error
+			saveFiles: this.api.audio.save,
 			saveParams: ['title', 'artist'],
 
 			maxFiles: 1,
 			attachmentType: 'audio'
 		});
 
-		return new AudioAttachment(audio, this.vk);
+		return new AudioAttachment({
+			api: this.api,
+			payload: audio
+		});
 	}
 
 	/**
@@ -486,8 +408,7 @@ export default class Upload {
 			compression?: number;
 		}
 	): Promise<VideoAttachment> {
-		// @ts-ignore
-		const save = await this.vk.api.video.save(copyParams(params, [
+		const save = await this.api.video.save(pickExistingProperties(params, [
 			'group_id',
 			'album_id',
 			'link',
@@ -504,48 +425,37 @@ export default class Upload {
 
 		save.id = save.video_id;
 
-		if ('link' in params) {
-			const response = await fetch(save.upload_url, {
-				agent: this.vk.options.agent
+		if (params.link !== undefined) {
+			const response = await fetch(save.upload_url!, {
+				agent: this.options.agent
 			});
 
 			await response.json();
 
-			// @ts-ignore
-			return new VideoAttachment(save, this.vk);
+			return new VideoAttachment({
+				api: this.api,
+				payload: save as VideoAttachment['payload']
+			});
 		}
 
-		let { source } = params;
-
-		if (typeof source !== 'object' || source.constructor !== Object) {
-			// @ts-ignore
-			source = {
-				values: source
-			};
-		}
-
-		// @ts-ignore
-		if (!Array.isArray(source.values)) {
-			// @ts-ignore
-			source.values = [source.values];
-		}
+		const source = normalizeSource(params.source);
 
 		const formData = await this.buildPayload({
 			maxFiles: 1,
 			field: 'video_file',
 			attachmentType: 'video',
-			// @ts-ignore
 			values: source.values
 		});
 
 		const video = await this.upload(save.upload_url!, {
 			formData,
-			forceBuffer: true,
-			// @ts-ignore
-			timeout: source.timeout
+			timeout: source.timeout!
 		});
 
-		return new VideoAttachment({ ...save, ...video }, this.vk);
+		return new VideoAttachment({
+			api: this.api,
+			payload: { ...save, ...video }
+		});
 	}
 
 	/**
@@ -557,12 +467,10 @@ export default class Upload {
 			field: 'file',
 			params,
 
-			// @ts-ignore
-			getServer: this.vk.api.docs.getUploadServer,
+			getServer: this.api.docs.getUploadServer,
 			serverParams: ['type', 'group_id'],
 
-			// @ts-ignore
-			saveFiles: this.vk.api.docs.save,
+			saveFiles: this.api.docs.save,
 			saveParams: ['title', 'tags'],
 
 			maxFiles: 1,
@@ -571,7 +479,10 @@ export default class Upload {
 
 		const ConductAttachment = DocumentTypes[response.type] || DocumentTypes.doc;
 
-		return new ConductAttachment(response[response.type], this.vk);
+		return new ConductAttachment({
+			api: this.api,
+			payload: response[response.type]
+		});
 	}
 
 	/**
@@ -599,12 +510,10 @@ export default class Upload {
 			field: 'file',
 			params,
 
-			// @ts-ignore
-			getServer: this.vk.api.docs.getWallUploadServer,
+			getServer: this.api.docs.getWallUploadServer,
 			serverParams: ['type', 'group_id'],
 
-			// @ts-ignore
-			saveFiles: this.vk.api.docs.save,
+			saveFiles: this.api.docs.save,
 			saveParams: ['title', 'tags'],
 
 			maxFiles: 1,
@@ -613,7 +522,10 @@ export default class Upload {
 
 		const ConductAttachment = DocumentTypes[response.type] || DocumentTypes.doc;
 
-		return new ConductAttachment(response[response.type], this.vk);
+		return new ConductAttachment({
+			api: this.api,
+			payload: response[response.type]
+		});
 	}
 
 	/**
@@ -642,12 +554,10 @@ export default class Upload {
 			field: 'file',
 			params,
 
-			// @ts-ignore
-			getServer: this.vk.api.docs.getMessagesUploadServer,
+			getServer: this.api.docs.getMessagesUploadServer,
 			serverParams: ['type', 'peer_id'],
 
-			// @ts-ignore
-			saveFiles: this.vk.api.docs.save,
+			saveFiles: this.api.docs.save,
 			saveParams: ['title', 'tags'],
 
 			maxFiles: 1,
@@ -656,7 +566,10 @@ export default class Upload {
 
 		const ConductAttachment = DocumentTypes[response.type] || DocumentTypes.doc;
 
-		return new ConductAttachment(response[response.type], this.vk);
+		return new ConductAttachment({
+			api: this.api,
+			payload: response[response.type]
+		});
 	}
 
 	/**
@@ -776,12 +689,10 @@ export default class Upload {
 			field: 'photo',
 			params,
 
-			// @ts-ignore
-			getServer: this.vk.api.photos.getOwnerCoverPhotoUploadServer,
+			getServer: this.api.photos.getOwnerCoverPhotoUploadServer,
 			serverParams: ['group_id', 'crop_x', 'crop_y', 'crop_x2', 'crop_y2'],
 
-			// @ts-ignore
-			saveFiles: this.vk.api.photos.saveOwnerCoverPhoto,
+			saveFiles: this.api.photos.saveOwnerCoverPhoto,
 
 			maxFiles: 1,
 			attachmentType: 'photo'
@@ -821,7 +732,7 @@ export default class Upload {
 	/**
 	 * Uploads photo stories
 	 */
-	storiesPhoto(
+	async storiesPhoto(
 		params: IUploadParams & {
 			group_id?: number;
 			add_to_news?: number;
@@ -830,13 +741,12 @@ export default class Upload {
 			link_text: string;
 			link_url: string;
 		}
-	): Promise<IStoryObject> {
-		return this.conduct({
+	): Promise<StoryAttachment> {
+		const story = await this.conduct({
 			field: 'file',
 			params,
 
-			// @ts-ignore
-			getServer: this.vk.api.stories.getPhotoUploadServer,
+			getServer: this.api.stories.getPhotoUploadServer,
 			serverParams: [
 				'add_to_news',
 				'user_ids',
@@ -847,17 +757,22 @@ export default class Upload {
 				'attach_access_key'
 			],
 
-			saveFiles: save => save,
+			saveFiles: this.api.stories.save,
 
 			maxFiles: 1,
 			attachmentType: 'photo'
+		});
+
+		return new StoryAttachment({
+			api: this.api,
+			payload: story
 		});
 	}
 
 	/**
 	 * Uploads video stories
 	 */
-	storiesVideo(
+	async storiesVideo(
 		params: IUploadParams & {
 			group_id?: number;
 			add_to_news?: number;
@@ -866,13 +781,12 @@ export default class Upload {
 			link_text: string;
 			link_url: string;
 		}
-	): Promise<IStoryObject> {
-		return this.conduct({
+	): Promise<StoryAttachment> {
+		const story = await this.conduct({
 			field: 'video_file',
 			params,
 
-			// @ts-ignore
-			getServer: this.vk.api.stories.getVideoUploadServer,
+			getServer: this.api.stories.getVideoUploadServer,
 			serverParams: [
 				'add_to_news',
 				'user_ids',
@@ -882,12 +796,15 @@ export default class Upload {
 				'group_id'
 			],
 
-			saveFiles: save => save,
+			saveFiles: this.api.stories.save,
 
 			maxFiles: 1,
-			attachmentType: 'video',
+			attachmentType: 'video'
+		});
 
-			forceBuffer: true
+		return new StoryAttachment({
+			api: this.api,
+			payload: story
 		});
 	}
 
@@ -904,12 +821,10 @@ export default class Upload {
 			field: 'file',
 			params,
 
-			// @ts-ignore
-			getServer: this.vk.api.polls.getPhotoUploadServer,
+			getServer: this.api.polls.getPhotoUploadServer,
 			serverParams: ['owner_id'],
 
-			// @ts-ignore
-			saveFiles: this.vk.api.polls.savePhoto,
+			saveFiles: this.api.polls.savePhoto,
 
 			maxFiles: 1,
 			attachmentType: 'photo'
@@ -930,9 +845,7 @@ export default class Upload {
 		saveParams = [],
 
 		maxFiles = 1,
-		attachmentType,
-
-		forceBuffer = false
+		attachmentType
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	}: IUploadConduct): Promise<any> {
 		if (!params || !params.source) {
@@ -942,35 +855,15 @@ export default class Upload {
 			});
 		}
 
-		let { source } = params;
+		const source = normalizeSource(params.source);
 
-		if (
-			typeof source !== 'object'
-			|| source.constructor !== Object
-			// @ts-ignore
-			|| source.value !== undefined) {
-			// @ts-ignore
-			source = {
-				values: source
-			};
-		}
-
-		// @ts-ignore
-		if (!Array.isArray(source.values)) {
-			// @ts-ignore
-			source.values = [source.values];
-		}
-
-		// @ts-ignore
-		if ('uploadUrl' in source) {
+		if (source.uploadUrl !== undefined) {
 			// eslint-disable-next-line no-param-reassign
-			getServer = (): ReturnType<IUploadConduct['getServer']> => ({
-				// @ts-ignore
-				upload_url: source.uploadUrl
+			getServer = (): Promise<{ upload_url: string }> => Promise.resolve({
+				upload_url: source.uploadUrl!
 			});
 		}
 
-		// @ts-ignore
 		const { length: valuesLength } = source.values;
 
 		if (valuesLength === 0) {
@@ -988,10 +881,9 @@ export default class Upload {
 		}
 
 		const [{ upload_url: url }, formData] = await Promise.all([
-			getServer(copyParams(params, serverParams)),
+			getServer(pickExistingProperties(params, serverParams)),
 			this.buildPayload({
 				field,
-				// @ts-ignore
 				values: source.values,
 				maxFiles,
 				attachmentType
@@ -1000,9 +892,7 @@ export default class Upload {
 
 		const uploaded = await this.upload(url, {
 			formData,
-			forceBuffer,
-			// @ts-ignore
-			timeout: source.timeout
+			timeout: source.timeout!
 		});
 
 		if (typeof uploaded !== 'object') {
@@ -1012,7 +902,7 @@ export default class Upload {
 		}
 
 		const response = await saveFiles({
-			...copyParams(params, saveParams),
+			...pickExistingProperties(params, saveParams),
 			...uploaded
 		});
 
@@ -1030,69 +920,62 @@ export default class Upload {
 		attachmentType
 	}: {
 		field: string;
-		values: (UploadSourceValue | UploadSourceType)[];
+		values: IUploadSourceMedia[];
 		maxFiles: number;
 		attachmentType?: string;
-	}): Promise<MultipartStream> {
-		const boundary = randomBytes(32).toString('hex');
-		const formData = new MultipartStream(boundary);
+	}): Promise<FormData> {
+		const formData = new FormData();
 
 		const isMultipart = maxFiles > 1;
 
-		const tasks = values
-			.map((value: UploadSourceValue | UploadSourceType) => (
-				typeof value === 'object' && value.constructor === Object
-					? value
-					: { value }
-			))
-			// @ts-ignore
-			.map(async (
-				{
-					value,
-					filename,
-					contentType = null
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				}: any,
-				i
-			) => {
-				if (typeof value === 'string') {
-					if (isURL.test(value)) {
-						const response = await fetch(value);
+		const tasks = values.map(async (media, i) => {
+			let { value, filename, contentLength } = media;
 
-						// eslint-disable-next-line no-param-reassign
-						value = response.body;
-					} else {
-						// eslint-disable-next-line no-param-reassign
-						value = createReadStream(value);
+			if (typeof value === 'string') {
+				if (isURL.test(value)) {
+					const response = await fetch(value);
+
+					value = response.body;
+
+					const length = response.headers.get('content-length');
+
+					if (length !== null) {
+						contentLength = Number(length);
 					}
+				} else {
+					value = createReadStream(value);
 				}
+			}
 
-				if (!filename) {
-					// @ts-ignore
-					// eslint-disable-next-line no-param-reassign
-					filename = `file${i}.${DefaultExtension[attachmentType] || 'dat'}`;
-				}
+			if (filename === undefined) {
+				filename = `file${i}.${DefaultExtension[attachmentType as keyof typeof DefaultExtension] || 'dat'}`;
+			}
 
-				if (isStream(value) || Buffer.isBuffer(value)) {
-					const name = isMultipart
-						? field + (i + 1)
-						: field;
+			if (isStream(value) || Buffer.isBuffer(value)) {
+				const name = isMultipart
+					? field + (i + 1)
+					: field;
 
-					const headers = {
-						'Content-Type': contentType === null
-							// @ts-ignore
-							? DefaultContentType[attachmentType]
-							: contentType
-					};
+				const { contentType } = media;
 
-					return formData.append(name, value, { filename, headers });
-				}
+				const headers = {
+					// eslint-disable-next-line @typescript-eslint/naming-convention
+					'Content-Type': contentType
+						|| DefaultContentType[attachmentType as keyof typeof DefaultContentType]
+				};
 
-				throw new UploadError({
-					message: 'Unsupported source type',
-					code: UNSUPPORTED_SOURCE_TYPE
+				return formData.append(name, value, {
+					filename,
+					header: headers,
+					knownLength: contentLength
 				});
+			}
+
+			throw new UploadError({
+				message: 'Unsupported source type',
+				code: UNSUPPORTED_SOURCE_TYPE
 			});
+		});
 
 		await Promise.all(tasks);
 
@@ -1102,44 +985,63 @@ export default class Upload {
 	/**
 	 * Upload form data
 	 */
+	async upload(url: URL | string, { formData, timeout }: {
+		formData: FormData;
+		timeout: number;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	async upload(url: URL | string, { formData, timeout, forceBuffer }: any): Promise<any> {
-		const { agent, uploadTimeout } = this.vk.options;
+	}): Promise<any> {
+		const { agent, uploadTimeout } = this.options;
 
-		const body = forceBuffer
+		// @ts-expect-error
+		// eslint-disable-next-line no-underscore-dangle
+		const metaLength = formData._overheadLength + formData._lastBoundary().length;
+
+		const formDataLength = await promisify(formData.getLength).call(formData);
+
+		const hasKnownLength = metaLength !== formDataLength;
+
+		const body = !hasKnownLength
 			? await streamToBuffer(formData)
 			: formData;
 
-		let response = await fetch(url, {
-			agent,
-			compress: false,
-			method: 'POST',
-			timeout: timeout || uploadTimeout,
-			headers: {
-				Connection: 'keep-alive',
-				'Content-Type': `multipart/form-data; boundary=${formData.boundary}`
-			},
-			body
-		});
+		const length = hasKnownLength
+			? formDataLength
+			: (body as Buffer).length;
 
-		if (!response.ok) {
-			throw new Error(response.statusText);
+		const controller = new AbortController();
+
+		const interval = setTimeout(() => controller.abort(), timeout || uploadTimeout);
+
+		try {
+			const response = await fetch(url, {
+				agent,
+				compress: false,
+				method: 'POST',
+				signal: controller.signal,
+				headers: {
+					...formData.getHeaders(),
+
+					// eslint-disable-next-line @typescript-eslint/naming-convention
+					Connection: 'keep-alive',
+					// eslint-disable-next-line @typescript-eslint/naming-convention
+					'Content-Length': String(length)
+				},
+				body
+			});
+
+			if (!response.ok) {
+				throw new Error(response.statusText);
+			}
+
+			const result = await response.json();
+
+			return result.response !== undefined
+				? result.response
+				: result;
+		} finally {
+			clearTimeout(interval);
 		}
-
-		response = await response.json();
-
-		return response.response !== undefined
-			? response.response
-			: response;
-	}
-
-	/**
-	 * Custom inspect object
-	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public [inspect.custom](depth: number, options: Record<string, any>): string {
-		const { name } = this.constructor;
-
-		return `${options.stylize(name, 'special')} {}`;
 	}
 }
+
+inspectable(Upload);

@@ -1,24 +1,24 @@
-import { Stream, Readable } from 'stream';
+import { Stream, PassThrough } from 'stream';
+import { UploadNormalizedSourceOptions, UploadAllowedSource } from './types';
 
 /**
  * Check object is stream
  */
-export const isStream = (source: Readable | Buffer | string): boolean => (
+export const isStream = (source: NodeJS.ReadableStream | Buffer | string): boolean => (
 	typeof source === 'object' && source instanceof Stream
 );
 
 /**
  * Copies object params to new object
  */
-export const copyParams = <
+export const pickExistingProperties = <
 	T,
 	K extends keyof T
 >(params: T, properties: K[]): Pick<T, K> => {
-	// @ts-ignore
-	const copies: Pick<T, K> = {};
+	const copies: Pick<T, K> = {} as Pick<T, K>;
 
 	for (const property of properties) {
-		if (property in params) {
+		if (params[property] !== undefined) {
 			copies[property] = params[property];
 		}
 	}
@@ -26,21 +26,35 @@ export const copyParams = <
 	return copies;
 };
 
-/**
- * Returns buffer from stream in Promise
- */
-export const streamToBuffer = (stream: Readable): Promise<Buffer> => (
-	new Promise((resolve, reject): void => {
-		const accum: Buffer[] = [];
+export const normalizeSource = (rawSource: UploadAllowedSource): UploadNormalizedSourceOptions => {
+	if ('value' in rawSource) {
+		return {
+			values: [rawSource]
+		};
+	}
 
-		stream.on('error', reject);
+	return {
+		...rawSource,
 
-		stream.on('end', (): void => {
-			resolve(Buffer.concat(accum));
-		});
+		values: Array.isArray(rawSource.values)
+			? rawSource.values
+			: [rawSource.values]
+	};
+};
 
-		stream.on('data', (chunk): void => {
-			accum.push(chunk);
-		});
-	})
-);
+export const streamToBuffer = async (rawStream: NodeJS.ReadableStream): Promise<Buffer> => {
+	const stream = new PassThrough();
+
+	rawStream.pipe(stream);
+
+	const chunks: Buffer[] = [];
+	let totalSize = 0;
+
+	for await (const chunk of stream) {
+		totalSize += chunk.length;
+
+		chunks.push(chunk as Buffer);
+	}
+
+	return Buffer.concat(chunks, totalSize);
+};

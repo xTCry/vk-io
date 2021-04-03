@@ -1,13 +1,11 @@
-import VK from '../../vk';
+import { Attachment, AttachmentFactoryOptions } from './attachment';
+import { ExternalAttachment } from './external';
+import { Attachmentable } from '../shared/attachmentable';
 
-import Attachment from './attachment';
 // eslint-disable-next-line import/no-cycle
 import { transformAttachments } from './helpers';
-import { copyParams } from '../../utils/helpers';
-import { AttachmentType, inspectCustomData } from '../../utils/constants';
-import ExternalAttachment from './external';
-
-const { WALL } = AttachmentType;
+import { AttachmentType, kSerializeData } from '../../utils/constants';
+import { pickProperties, applyMixins } from '../../utils/helpers';
 
 const kAttachments = Symbol('attachments');
 const kCopyHistoryAttachments = Symbol('copyHistoryAttachments');
@@ -64,22 +62,27 @@ export interface IWallAttachmentPayload {
 	is_favorite?: number;
 }
 
-export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
-	protected [kAttachments]: (Attachment | ExternalAttachment)[] | null;
+export type WallAttachmentOptions =
+	AttachmentFactoryOptions<IWallAttachmentPayload>;
 
-	protected [kCopyHistoryAttachments]: WallAttachment[] | null;
+class WallAttachment extends Attachment<IWallAttachmentPayload, AttachmentType.WALL | 'wall'> {
+	protected [kAttachments]: (Attachment | ExternalAttachment)[];
+
+	protected [kCopyHistoryAttachments]: WallAttachment[];
 
 	/**
 	 * Constructor
 	 */
-	public constructor(payload: IWallAttachmentPayload, vk?: VK) {
-		super(WALL, payload.owner_id || payload.to_id!, payload.id, payload.access_key);
+	public constructor(options: WallAttachmentOptions) {
+		super({
+			...options,
 
-		// @ts-ignore
-		this.vk = vk;
-		this.payload = payload;
+			type: AttachmentType.WALL
+		});
 
-		this.$filled = 'date' in payload;
+		this.$filled = this.payload.date !== undefined;
+
+		this.applyPayload(options.payload);
 	}
 
 	/**
@@ -90,21 +93,12 @@ export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
 			return;
 		}
 
-		// @ts-ignore
-		const [post] = await this.vk.api.wall.getById({
+		const [post] = await this.api.wall.getById({
 			posts: `${this.ownerId}_${this.id}`,
 			extended: 0
 		});
 
-		// @ts-ignore
-		this.payload = post;
-
-		this[kAttachments] = null;
-		this[kCopyHistoryAttachments] = null;
-
-		if (this.payload.access_key) {
-			this.accessKey = this.payload.access_key;
-		}
+		this.applyPayload(post as IWallAttachmentPayload);
 
 		this.$filled = true;
 	}
@@ -112,48 +106,31 @@ export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
 	/**
 	 * Checks has comments
 	 */
-	public get hasComments(): boolean | null {
-		if (!this.$filled) {
-			return null;
-		}
-
+	public get hasComments(): boolean | undefined {
 		const { commentsCount } = this;
 
-		return commentsCount !== null
+		return commentsCount !== undefined
 			? commentsCount > 0
-			: null;
+			: undefined;
 	}
 
 	/**
 	 * Checks has ads in post
 	 */
-	public get hasAds(): boolean | null {
+	public get hasAds(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.marked_as_ads);
 	}
 
 	/**
-	 * Checks for the presence of attachments
-	 */
-	public hasAttachments(type: string | null = null): boolean {
-		if (type === null) {
-			return this.attachments.length > 0;
-		}
-
-		return this.attachments.some((attachment): boolean => (
-			attachment.type === type
-		));
-	}
-
-	/**
 	 * Checks has this user reposted
 	 */
-	public get hasUserReposted(): boolean | null {
+	public get hasUserReposted(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.reposts!.user_reposted);
@@ -162,9 +139,9 @@ export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
 	/**
 	 * Checks has this user likes
 	 */
-	public get hasUserLike(): boolean | null {
+	public get hasUserLike(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.likes!.user_likes);
@@ -173,9 +150,9 @@ export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
 	/**
 	 * Checks can the current user comment on the entry
 	 */
-	public get isCanUserCommented(): boolean | null {
+	public get isCanUserCommented(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.comments!.can_post);
@@ -184,9 +161,9 @@ export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
 	/**
 	 * Checks if a community can comment on a post
 	 */
-	public get isCanGroupsCommented(): boolean | null {
+	public get isCanGroupsCommented(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.comments!.groups_can_post);
@@ -195,16 +172,16 @@ export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
 	/**
 	 * Checks if you can comment on a post
 	 */
-	public get isCanCommented(): boolean | null {
+	public get isCanCommented(): boolean | undefined {
 		return this.isCanUserCommented || this.isCanGroupsCommented;
 	}
 
 	/**
 	 * Checks if a user can close on a comments
 	 */
-	public get isCanCloseComments(): boolean | null {
+	public get isCanCloseComments(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.comments!.can_close);
@@ -213,9 +190,9 @@ export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
 	/**
 	 * Checks if a user can open on a comments
 	 */
-	public get isCanOpenComments(): boolean | null {
+	public get isCanOpenComments(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.comments!.can_open);
@@ -224,9 +201,9 @@ export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
 	/**
 	 * Checks whether the current user can like the record
 	 */
-	public get isCanLike(): boolean | null {
+	public get isCanLike(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.likes!.can_like);
@@ -235,9 +212,9 @@ export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
 	/**
 	 * hecks whether the current user can repost the record
 	 */
-	public get isCanReposted(): boolean | null {
+	public get isCanReposted(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.likes!.can_publish);
@@ -246,9 +223,9 @@ export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
 	/**
 	 * Checks is can this user pin post
 	 */
-	public get isCanPin(): boolean | null {
+	public get isCanPin(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.can_pin);
@@ -257,9 +234,9 @@ export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
 	/**
 	 * Checks is can this user delete post
 	 */
-	public get isCanDelete(): boolean | null {
+	public get isCanDelete(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.can_delete);
@@ -268,9 +245,9 @@ export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
 	/**
 	 * Checks is can this user edit post
 	 */
-	public get isCanEdit(): boolean | null {
+	public get isCanEdit(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.can_edit);
@@ -279,9 +256,9 @@ export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
 	/**
 	 * Checks is can this user edit post
 	 */
-	public get isPinned(): boolean | null {
+	public get isPinned(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.is_pinned);
@@ -290,9 +267,9 @@ export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
 	/**
 	 * Checks is post created only by friends
 	 */
-	public get isFriendsOnly(): boolean | null {
+	public get isFriendsOnly(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.friends_only);
@@ -301,189 +278,159 @@ export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
 	/**
 	 * Checks is bookmarked current user
 	 */
-	public get isFavorited(): boolean | null {
+	public get isFavorited(): boolean | undefined {
 		if (!this.$filled) {
-			return null;
+			return undefined;
 		}
 
 		return Boolean(this.payload.is_favorite);
 	}
 
+	public get ownerId(): number {
+		return this.payload.owner_id || this.payload.to_id!;
+	}
+
 	/**
 	 * Returns the identifier author
 	 */
-	public get authorId(): number | null {
-		return this.payload.from_id || null;
+	public get authorId(): number | undefined {
+		return this.payload.from_id;
 	}
 
 	/**
 	 * Returns the administrator identifier that posted the entry
 	 */
-	public get createdUserId(): number | null {
-		return this.payload.created_by || null;
+	public get createdUserId(): number | undefined {
+		return this.payload.created_by;
 	}
 
 	/**
 	 * The identifier of the record owner, in response to which the current
 	 */
-	public get replyOwnerId(): number | null {
-		return this.payload.reply_owner_id || null;
+	public get replyOwnerId(): number | undefined {
+		return this.payload.reply_owner_id;
 	}
 
 	/**
 	 * The identifier of the record in response to which the current one was left.
 	 */
-	public get replyPostId(): number | null {
-		return this.payload.reply_post_id || null;
+	public get replyPostId(): number | undefined {
+		return this.payload.reply_post_id;
 	}
 
 	/**
 	 * Returns author identifier if the entry was published
 	 * on behalf of the community and signed by the user
 	 */
-	public get signerId(): number | null {
-		return this.payload.signer_id || null;
+	public get signerId(): number | undefined {
+		return this.payload.signer_id;
 	}
 
 	/**
 	 * Returns the date when this post was created
 	 */
-	public get createdAt(): number | null {
-		return this.payload.date || null;
+	public get createdAt(): number | undefined {
+		return this.payload.date;
 	}
 
 	/**
 	 * Returns the post type
 	 */
-	public get postType(): string | null {
-		return this.payload.post_type || null;
+	public get postType(): string | undefined {
+		return this.payload.post_type;
 	}
 
 	/**
 	 * Returns the post text
 	 */
-	public get text(): string | null {
-		return this.payload.text || null;
+	public get text(): string | undefined {
+		return this.payload.text;
 	}
 
 	/**
 	 * Returns the number of record views
 	 */
-	public get viewsCount(): number | null {
-		if (!this.$filled) {
-			return null;
-		}
-
-		return 'views' in this.payload
-			? this.payload.views!.count
-			: null;
+	public get viewsCount(): number | undefined {
+		return this.payload.views?.count;
 	}
 
 	/**
 	 * Returns the likes count
 	 */
-	public get likesCount(): number | null {
-		if (!this.$filled) {
-			return null;
-		}
-
-		return 'likes' in this.payload
-			? this.payload.likes!.count
-			: null;
+	public get likesCount(): number | undefined {
+		return this.payload.likes?.count;
 	}
 
 	/**
 	 * Returns the reposts count
 	 */
-	public get repostsCount(): number | null {
-		if (!this.$filled) {
-			return null;
-		}
-
-		return 'reposts' in this.payload
-			? this.payload.reposts!.count
-			: null;
+	public get repostsCount(): number | undefined {
+		return this.payload.reposts?.count;
 	}
 
 	/**
 	 * Returns the comments count
 	 */
-	public get commentsCount(): number | null {
-		if (!this.$filled) {
-			return null;
-		}
-
-		return 'comments' in this.payload
-			? this.payload.comments!.count
-			: null;
+	public get commentsCount(): number | undefined {
+		return this.payload.comments?.count;
 	}
 
 	/**
 	 * Returns the likes info
 	 */
-	public get likes(): object | null {
-		return this.payload.likes || null;
+	public get likes(): object | undefined {
+		return this.payload.likes;
 	}
 
 	/**
 	 * Returns the post source
 	 */
-	public get postSource(): object | null {
-		return this.payload.post_source || null;
+	public get postSource(): object | undefined {
+		return this.payload.post_source;
 	}
 
 	/**
 	 * Returns the geo location
 	 */
-	public get geo(): object | null {
-		return this.payload.geo || null;
-	}
-
-	/**
-	 * Returns the history of reposts for post
-	 */
-	public get copyHistory(): WallAttachment[] | null {
-		if (!this[kCopyHistoryAttachments]) {
-			this[kCopyHistoryAttachments] = this.payload.copy_history
-				? this.payload.copy_history.map((history): WallAttachment => (
-					new WallAttachment(history, this.vk)
-				))
-				: [];
-		}
-
-		return this[kCopyHistoryAttachments];
+	public get geo(): object | undefined {
+		return this.payload.geo;
 	}
 
 	/**
 	 * Returns the attachments
 	 */
 	public get attachments(): (Attachment | ExternalAttachment)[] {
-		if (!this[kAttachments]) {
-			this[kAttachments] = transformAttachments(this.payload.attachments || [], this.vk);
-		}
-
-		return this[kAttachments]!;
+		return this[kAttachments];
 	}
 
 	/**
-	 * Returns the attachments
+	 * Returns the history of reposts for post
 	 */
-	public getAttachments(type: string | null = null): (Attachment | ExternalAttachment)[] {
-		if (type === null) {
-			return this.attachments;
-		}
+	public get copyHistory(): WallAttachment[] | undefined {
+		return this[kCopyHistoryAttachments];
+	}
 
-		return this.attachments.filter((attachment): boolean => (
-			attachment.type === type
+	/**
+	 * Applies the payload
+	 */
+	private applyPayload(payload: IWallAttachmentPayload): void {
+		this.payload = payload;
+
+		this[kAttachments] = transformAttachments(payload.attachments || [], this.api);
+
+		this[kCopyHistoryAttachments] = (payload.copy_history || []).map((history): WallAttachment => (
+			new WallAttachment({
+				api: this.api,
+				payload: history
+			})
 		));
 	}
 
 	/**
 	 * Returns the custom data
 	 */
-	// @ts-ignore
-	public [inspectCustomData](): object | null {
-		return copyParams(this, [
+	public [kSerializeData](): object {
+		return pickProperties(this, [
 			'authorId',
 			'createdUserId',
 			'replyOwnerId',
@@ -504,3 +451,9 @@ export default class WallAttachment extends Attachment<IWallAttachmentPayload> {
 		]);
 	}
 }
+
+// eslint-disable-next-line
+interface WallAttachment extends Attachmentable {}
+applyMixins(WallAttachment, [Attachmentable]);
+
+export { WallAttachment };
