@@ -11,7 +11,8 @@ const MODULES = [
 	'scenes',
 	'session',
 	'streaming',
-	'authorization'
+	'authorization',
+	'stateless-prompt'
 ];
 
 const coreModules = builtinModules.filter(name => (
@@ -51,7 +52,25 @@ export default async () => (
 								rootDir: src,
 								include: [src]
 							}
-						})
+						}),
+						// https://rollupjs.org/guide/en/#renderdynamicimport
+						{
+							name: 'retain-import-expression',
+							resolveDynamicImport(specifier) {
+								if (specifier === 'node-fetch') return false;
+								return null;
+							},
+							renderDynamicImport({ targetModuleId }) {
+								if (targetModuleId === 'node-fetch') {
+									return {
+										left: 'import(',
+										right: ')'
+									};
+								}
+
+								return undefined;
+							}
+						}
 					],
 					external: [
 						...Object.keys(modulePkg.dependencies || {}),
@@ -62,14 +81,14 @@ export default async () => (
 					],
 					output: [
 						{
-							file: pathJoin(modulePath, `${modulePkg.main}.js`),
+							file: pathJoin(lib, 'index.js'),
 							format: 'cjs',
 							exports: 'named'
+						},
+						{
+							file: pathJoin(lib, 'index.mjs'),
+							format: 'esm'
 						}
-						// {
-						// 	file: pathJoin(modulePath, `${modulePkg.main}.mjs`),
-						// 	format: 'esm'
-						// }
 					]
 				};
 			})

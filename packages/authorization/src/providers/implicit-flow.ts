@@ -64,7 +64,7 @@ const REPLACE_PREFIX_RE = /^[+|0]+/;
 /**
  * Find location.href text
  */
-const FIND_LOCATION_HREF_RE = /location\.href\s+=\s+"([^"]+)"/i;
+const FIND_LOCATION_HREF_RE = /location\.href\s*=\s*['"]([^'"]+)['"]/i;
 
 export interface IImplicitFlowOptions {
 	callbackService: CallbackService;
@@ -145,6 +145,7 @@ export abstract class ImplicitFlow {
 	/**
 	 * Returns cookie
 	 */
+	// eslint-disable-next-line @typescript-eslint/naming-convention
 	public async getCookies(): Promise<{ 'login.vk.com': string; 'vk.com': string }> {
 		const { jar } = this;
 
@@ -154,7 +155,9 @@ export abstract class ImplicitFlow {
 		]);
 
 		return {
+			// eslint-disable-next-line @typescript-eslint/naming-convention
 			'login.vk.com': login,
+			// eslint-disable-next-line @typescript-eslint/naming-convention
 			'vk.com': main
 		};
 	}
@@ -230,6 +233,12 @@ export abstract class ImplicitFlow {
 			}
 
 			const $ = cheerioLoad(await response.text());
+
+			if (url.includes('act=authcheck_code')) {
+				response = await this.processCaptchaForm(response, $);
+
+				continue;
+			}
 
 			if (url.includes(ACTION_AUTH_CODE)) {
 				response = await this.processTwoFactorForm(response, $);
@@ -414,10 +423,54 @@ export abstract class ImplicitFlow {
 
 			return newResponse;
 		} catch (error) {
-			validate.reject(error);
+			validate.reject(error as Error);
 
 			throw error;
 		}
+	}
+
+	/**
+	 * Process captcha form
+	 *
+	 * TODO: Make a generic captcha handler
+	 */
+	protected async processCaptchaForm(response: Response, $: CheerioStatic): Promise<Response> {
+		const { action, fields } = parseFormField($);
+
+		if (fields.captcha_sid !== undefined) {
+			const src = $('.captcha_img').attr('src');
+
+			if (!src) {
+				throw new AuthorizationError({
+					message: 'Failed get captcha image',
+					code: AUTHORIZATION_FAILED
+				});
+			}
+
+			const {
+				key,
+				validate: captchaValidate
+			} = await this.options.callbackService.processingCaptcha({
+				type: CaptchaType.IMPLICIT_FLOW_AUTH,
+				sid: fields.captcha_sid,
+				src: `https://api.vk.com/${src}`
+			});
+
+			this.captchaValidate = captchaValidate;
+
+			fields.captcha_key = key;
+
+			const newUrl = getFullURL(action, response);
+
+			const newResponse = await this.fetch(newUrl, {
+				method: 'POST',
+				body: new URLSearchParams(fields)
+			});
+
+			return newResponse;
+		}
+
+		return response;
 	}
 
 	/**

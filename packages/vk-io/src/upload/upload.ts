@@ -1,15 +1,18 @@
-import fetch from 'node-fetch';
-import FormData from 'form-data';
+// eslint-disable-next-line import/extensions
+import { FormData, File } from 'formdata-node';
+import { FormDataEncoder } from 'form-data-encoder';
 import { AbortController } from 'abort-controller';
 
 import { inspectable } from 'inspectable';
 
 import { URL } from 'url';
-import { promisify } from 'util';
 import { createReadStream } from 'fs';
+import { stat as fileStat } from 'fs/promises';
 import { globalAgent } from 'https';
+import { Readable } from 'stream';
 
 import { API } from '../api';
+import { fetch } from '../utils/fetch';
 import { UploadError, UploadErrorCode } from '../errors';
 import { DefaultExtension, DefaultContentType } from '../utils/constants';
 import {
@@ -21,9 +24,9 @@ import {
 import {
 	isStream,
 
+	streamToBuffer,
 	normalizeSource,
-	pickExistingProperties,
-	streamToBuffer
+	pickExistingProperties
 } from './helpers';
 
 import {
@@ -434,7 +437,7 @@ export class Upload {
 
 			return new VideoAttachment({
 				api: this.api,
-				payload: save as VideoAttachment['payload']
+				payload: save as unknown as VideoAttachment['payload']
 			});
 		}
 
@@ -449,7 +452,8 @@ export class Upload {
 
 		const video = await this.upload(save.upload_url!, {
 			formData,
-			timeout: source.timeout!
+			timeout: source.timeout!,
+			forceBuffer: true
 		});
 
 		return new VideoAttachment({
@@ -742,7 +746,7 @@ export class Upload {
 			link_url: string;
 		}
 	): Promise<StoryAttachment> {
-		const story = await this.conduct({
+		const { items: [story] } = await this.conduct({
 			field: 'file',
 			params,
 
@@ -757,7 +761,11 @@ export class Upload {
 				'attach_access_key'
 			],
 
-			saveFiles: this.api.stories.save,
+			saveFiles: file => (
+				this.api.stories.save({
+					upload_results: file.upload_result
+				})
+			),
 
 			maxFiles: 1,
 			attachmentType: 'photo'
@@ -782,7 +790,7 @@ export class Upload {
 			link_url: string;
 		}
 	): Promise<StoryAttachment> {
-		const story = await this.conduct({
+		const { items: [story] } = await this.conduct({
 			field: 'video_file',
 			params,
 
@@ -796,7 +804,11 @@ export class Upload {
 				'group_id'
 			],
 
-			saveFiles: this.api.stories.save,
+			saveFiles: file => (
+				this.api.stories.save({
+					upload_results: file.upload_result
+				})
+			),
 
 			maxFiles: 1,
 			attachmentType: 'video'
@@ -929,12 +941,13 @@ export class Upload {
 		const isMultipart = maxFiles > 1;
 
 		const tasks = values.map(async (media, i) => {
-			let { value, filename, contentLength } = media;
+			let { value, filename, contentLength = 0 } = media;
 
 			if (typeof value === 'string') {
 				if (isURL.test(value)) {
 					const response = await fetch(value);
 
+					// @ts-expect-error
 					value = response.body;
 
 					const length = response.headers.get('content-length');
@@ -943,6 +956,10 @@ export class Upload {
 						contentLength = Number(length);
 					}
 				} else {
+					const stats = await fileStat(value);
+
+					contentLength = stats.size;
+
 					value = createReadStream(value);
 				}
 			}
@@ -951,24 +968,36 @@ export class Upload {
 				filename = `file${i}.${DefaultExtension[attachmentType as keyof typeof DefaultExtension] || 'dat'}`;
 			}
 
-			if (isStream(value) || Buffer.isBuffer(value)) {
+			const isBuffer = Buffer.isBuffer(value);
+
+			if (isStream(value) || isBuffer) {
 				const name = isMultipart
 					? field + (i + 1)
 					: field;
 
 				const { contentType } = media;
 
-				const headers = {
-					// eslint-disable-next-line @typescript-eslint/naming-convention
-					'Content-Type': contentType
-						|| DefaultContentType[attachmentType as keyof typeof DefaultContentType]
-				};
+				const fileContentType = contentType
+					|| DefaultContentType[attachmentType as keyof typeof DefaultContentType];
 
-				return formData.append(name, value, {
-					filename,
-					header: headers,
-					knownLength: contentLength
-				});
+				const file = isBuffer
+					? new File([value as Buffer], filename, {
+						type: fileContentType
+					})
+					// Workground for NodeJS streams: https://github.com/octet-stream/form-data/issues/32
+					: {
+						name: filename,
+						size: contentLength,
+						type: fileContentType,
+						stream: () => (
+							value
+						),
+						[Symbol.toStringTag]: 'File'
+					};
+
+				formData.append(name, file);
+
+				return;
 			}
 
 			throw new UploadError({
@@ -985,32 +1014,36 @@ export class Upload {
 	/**
 	 * Upload form data
 	 */
-	async upload(url: URL | string, { formData, timeout }: {
+	async upload(url: URL | string, { formData, timeout, forceBuffer = false }: {
 		formData: FormData;
 		timeout: number;
+		forceBuffer?: boolean;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	}): Promise<any> {
 		const { agent, uploadTimeout } = this.options;
 
-		// @ts-expect-error
-		// eslint-disable-next-line no-underscore-dangle
-		const metaLength = formData._overheadLength + formData._lastBoundary().length;
+		const encoder = new FormDataEncoder(formData);
 
-		const formDataLength = await promisify(formData.getLength).call(formData);
-
-		const hasKnownLength = metaLength !== formDataLength;
-
-		const body = !hasKnownLength
-			? await streamToBuffer(formData)
-			: formData;
-
-		const length = hasKnownLength
-			? formDataLength
-			: (body as Buffer).length;
+		const rawBody = Readable.from(encoder.encode());
 
 		const controller = new AbortController();
 
 		const interval = setTimeout(() => controller.abort(), timeout || uploadTimeout);
+
+		const headers: Record<string, string> = {
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			Connection: 'keep-alive',
+
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			'Content-Type': encoder.headers['Content-Type']
+		};
+		const body = forceBuffer
+			? await streamToBuffer(rawBody)
+			: rawBody;
+
+		if (forceBuffer) {
+			headers['Content-Length'] = String((body as Buffer).length);
+		}
 
 		try {
 			const response = await fetch(url, {
@@ -1018,14 +1051,7 @@ export class Upload {
 				compress: false,
 				method: 'POST',
 				signal: controller.signal,
-				headers: {
-					...formData.getHeaders(),
-
-					// eslint-disable-next-line @typescript-eslint/naming-convention
-					Connection: 'keep-alive',
-					// eslint-disable-next-line @typescript-eslint/naming-convention
-					'Content-Length': String(length)
-				},
+				headers,
 				body
 			});
 
@@ -1033,7 +1059,8 @@ export class Upload {
 				throw new Error(response.statusText);
 			}
 
-			const result = await response.json();
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const result = await response.json() as any;
 
 			return result.response !== undefined
 				? result.response

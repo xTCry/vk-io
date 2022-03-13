@@ -3,10 +3,10 @@
 Базовый модуль получения событий из [User Long Poll](https://vk.com/dev/using_longpoll), [Bots Long Poll](https://vk.com/dev/bots_longpoll) и [Callback API](https://vk.com/dev/callback_api).
 
 ## Описание типов
-[API Reference [EN]](http://negezor.github.io/vk-io/references/vk-io/classes/updates.html)
+[API Reference [EN]](https://negezor.github.io/vk-io/references/vk-io/classes/updates.html)
 
 ## Инициализация
-[Опции конструктора](http://negezor.github.io/vk-io/references/vk-io/interfaces/iupdatesoptions.html)
+[Опции конструктора](https://negezor.github.io/vk-io/references/vk-io/interfaces/iupdatesoptions.html)
 
 ```ts
 import { API, Upload, Updates } from 'vk-io';
@@ -29,6 +29,10 @@ const updates = new Updates({
 ## Концепт
 
 Класс является обобщением всех трёх способов получения событий в одном интерфейсе. События приходят в унифицированных контекстах, у каждого контекста есть основной тип события и его подтипы. За счёт этого вы можете указать основной тип события и вы будете получать все его подтипы. Или можно указать только подтип.
+
+:::tip Совет
+Вы можете отдельно почитать про контексты [здесь](./contexts.md)
+:::
 
 ```ts
 // События по типу
@@ -114,7 +118,7 @@ updates.on('like', () => {...});
 ```
 
 ::: warning Внимание
-Важно что бы middleware возвращал [Promise](https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Promise), если обработка событий будет дальше передана по цепочке, так как без этого невозможно будет отследить правильно ошибки/дождатся окончательного завершения запроса для других middleware.
+Важно, чтобы middleware возвращал [Promise](https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Promise), если обработка событий будет дальше передана по цепочке, так как без этого невозможно будет отследить правильно ошибки/дождатся окончательного завершения запроса для других middleware.
 :::
 
 ## Список событий

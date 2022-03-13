@@ -56,7 +56,11 @@ export interface AccountGetBannedParams {
 }
 
 export interface AccountGetCountersParams {
-    filter?: ("friends" | "messages" | "photos" | "videos" | "notes" | "gifts" | "events" | "groups" | "sdk" | "friends_suggestions")[] | ("friends" | "messages" | "photos" | "videos" | "notes" | "gifts" | "events" | "groups" | "sdk" | "friends_suggestions");
+    /**
+     * User ID
+     */
+    user_id?: number;
+    filter?: ("friends" | "messages" | "photos" | "notes" | "gifts" | "events" | "groups" | "sdk" | "friends_suggestions" | "notifications" | "app_requests" | "friends_recommendations")[] | ("friends" | "messages" | "photos" | "notes" | "gifts" | "events" | "groups" | "sdk" | "friends_suggestions" | "notifications" | "app_requests" | "friends_recommendations");
     [key: string]: any;
 }
 
@@ -128,11 +132,11 @@ export interface AccountSaveProfileInfoParams {
      */
     cancel_request_id?: number;
     /**
-     * User sex. Possible values: , * '1' – female,, * '2' – male.
+     * User sex. Possible values: , * '1' - female,, * '2' - male.
      */
     sex?: 0 | 1 | 2;
     /**
-     * User relationship status. Possible values: , * '1' – single,, * '2' – in a relationship,, * '3' – engaged,, * '4' – married,, * '5' – it's complicated,, * '6' – actively searching,, * '7' – in love,, * '0' – not specified.
+     * User relationship status. Possible values: , * '1' - single,, * '2' - in a relationship,, * '3' - engaged,, * '4' - married,, * '5' - it's complicated,, * '6' - actively searching,, * '7' - in love,, * '0' - not specified.
      */
     relation?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 0;
     /**
@@ -144,7 +148,7 @@ export interface AccountSaveProfileInfoParams {
      */
     bdate?: string;
     /**
-     * Birth date visibility. Returned values: , * '1' – show birth date,, * '2' – show only month and day,, * '0' – hide birth date.
+     * Birth date visibility. Returned values: , * '1' - show birth date,, * '2' - show only month and day,, * '0' - hide birth date.
      */
     bdate_visibility?: 1 | 2 | 0;
     /**
@@ -170,23 +174,11 @@ export interface AccountSetInfoParams {
     /**
      * Setting name.
      */
-    name?: string;
+    name?: "intro" | "no_wall_replies" | "own_posts_default";
     /**
      * Setting value.
      */
     value?: string;
-    [key: string]: any;
-}
-
-export interface AccountSetNameInMenuParams {
-    /**
-     * User ID.
-     */
-    user_id: number;
-    /**
-     * Application screen name.
-     */
-    name?: string;
     [key: string]: any;
 }
 
@@ -258,7 +250,10 @@ export interface AdsAddOfficeUsersParams {
      * Advertising account ID.
      */
     account_id: number;
-    data?: Objects.AdsUserSpecificationCutted[];
+    /**
+     * Serialized JSON array of objects that describe added managers. Description of 'user_specification' objects see below.
+     */
+    data: string;
     [key: string]: any;
 }
 
@@ -438,14 +433,6 @@ export interface AdsGetAdsLayoutParams {
      */
     account_id: number;
     /**
-     * Filter by ads. Serialized JSON array with ad IDs. If the parameter is null, all ads will be shown.
-     */
-    ad_ids?: string;
-    /**
-     * Filter by advertising campaigns. Serialized JSON array with campaign IDs. If the parameter is null, ads of all campaigns will be shown.
-     */
-    campaign_ids?: string;
-    /**
      * 'For advertising agencies.' ID of the client ads are retrieved from.
      */
     client_id?: number;
@@ -453,6 +440,18 @@ export interface AdsGetAdsLayoutParams {
      * Flag that specifies whether archived ads shall be shown. *0 — show only active ads,, *1 — show all ads.
      */
     include_deleted?: boolean | number;
+    /**
+     * Flag that specifies whether to show only archived ads: *0 — show all ads,, *1 — show only archived ads. Available when include_deleted flag is *1
+     */
+    only_deleted?: boolean | number;
+    /**
+     * Filter by advertising campaigns. Serialized JSON array with campaign IDs. If the parameter is null, ads of all campaigns will be shown.
+     */
+    campaign_ids?: string;
+    /**
+     * Filter by ads. Serialized JSON array with ad IDs. If the parameter is null, all ads will be shown.
+     */
+    ad_ids?: string;
     /**
      * Limit of number of returned ads. Used only if 'ad_ids' parameter is null, and 'campaign_ids' parameter contains ID of only one campaign.
      */
@@ -746,6 +745,7 @@ export interface AdsGetTargetingStatsParams {
     client_id?: number;
     ad_platform_no_wall?: string;
     ad_platform_no_ad_network?: string;
+    publisher_platforms?: string;
     [key: string]: any;
 }
 
@@ -835,7 +835,10 @@ export interface AdsUpdateOfficeUsersParams {
      * Advertising account ID.
      */
     account_id: number;
-    data?: Objects.AdsUserSpecification[];
+    /**
+     * Serialized JSON array of objects that describe added managers. Description of 'user_specification' objects see below.
+     */
+    data: string;
     [key: string]: any;
 }
 
@@ -1123,7 +1126,7 @@ export interface AppsSendRequestParams {
      */
     text?: string;
     /**
-     * request type. Values: 'invite' – if the request is sent to a user who does not have the app installed,, 'request' – if a user has already installed the app
+     * request type. Values: 'invite' - if the request is sent to a user who does not have the app installed,, 'request' - if a user has already installed the app
      */
     type?: "invite" | "request";
     /**
@@ -1607,7 +1610,7 @@ export interface DocsEditParams {
     /**
      * Document title.
      */
-    title?: string;
+    title: string;
     tags?: string[] | string;
     [key: string]: any;
 }
@@ -1742,18 +1745,6 @@ export interface FaveAddArticleParams {
     [key: string]: any;
 }
 
-export interface FaveAddClassifiedParams {
-    /**
-     * Classifieds item source
-     */
-    item_source: "youla";
-    /**
-     * Classifieds item id
-     */
-    item_id: string;
-    [key: string]: any;
-}
-
 export interface FaveAddLinkParams {
     /**
      * Link URL.
@@ -1818,7 +1809,7 @@ export interface FaveGetParams {
      * Number of users to return.
      */
     count?: number;
-    item_type?: "article" | "clip" | "link" | "narrative" | "page" | "podcast" | "post" | "product" | "video";
+    item_type?: "article" | "clip" | "link" | "narrative" | "page" | "podcast" | "post" | "product" | "video" | "youla_product";
     fields?: string;
     is_from_snackbar?: boolean | number;
     [key: string]: any;
@@ -1844,18 +1835,6 @@ export interface FaveMarkSeenParams {
 export interface FaveRemoveArticleParams {
     owner_id: number;
     article_id: number;
-    [key: string]: any;
-}
-
-export interface FaveRemoveClassifiedParams {
-    /**
-     * Classifieds item source
-     */
-    item_source: "youla";
-    /**
-     * Classifieds item id
-     */
-    item_id: string;
     [key: string]: any;
 }
 
@@ -1913,7 +1892,7 @@ export interface FaveSetPageTagsParams {
 }
 
 export interface FaveSetTagsParams {
-    item_type?: "article" | "clip" | "link" | "narrative" | "page" | "podcast" | "post" | "product" | "video";
+    item_type?: "article" | "clip" | "link" | "narrative" | "page" | "podcast" | "post" | "product" | "video" | "youla_product";
     item_owner_id?: number;
     item_id?: number;
     tag_ids?: number[] | number;
@@ -2180,7 +2159,7 @@ export interface FriendsSearchParams {
     /**
      * User ID.
      */
-    user_id: number;
+    user_id?: number;
     /**
      * Search query string (e.g., 'Vasya Babich').
      */
@@ -2290,7 +2269,7 @@ export interface GroupsCreateParams {
      */
     description?: string;
     /**
-     * Community type. Possible values: *'group' – group,, *'event' – event,, *'public' – public page
+     * Community type. Possible values: *'group' - group,, *'event' - event,, *'public' - public page
      */
     type?: "event" | "group" | "public";
     /**
@@ -2298,7 +2277,11 @@ export interface GroupsCreateParams {
      */
     public_category?: number;
     /**
-     * Public page subtype. Possible values: *'1' – place or small business,, *'2' – company, organization or website,, *'3' – famous person or group of people,, *'4' – product or work of art.
+     * Public page subcategory ID.
+     */
+    public_subcategory?: number;
+    /**
+     * Public page subtype. Possible values: *'1' - place or small business,, *'2' - company, organization or website,, *'3' - famous person or group of people,, *'4' - product or work of art.
      */
     subtype?: 1 | 2 | 3 | 4;
     [key: string]: any;
@@ -2391,19 +2374,19 @@ export interface GroupsEditParams {
      */
     public_date?: string;
     /**
-     * Links settings (for public pages only). Possible values: *'0' – disabled,, *'1' – enabled.
+     * Links settings (for public pages only). Possible values: *'0' - disabled,, *'1' - enabled.
      */
     links?: boolean | number;
     /**
-     * Events settings (for public pages only). Possible values: *'0' – disabled,, *'1' – enabled.
+     * Events settings (for public pages only). Possible values: *'0' - disabled,, *'1' - enabled.
      */
     events?: boolean | number;
     /**
-     * Places settings (for public pages only). Possible values: *'0' – disabled,, *'1' – enabled.
+     * Places settings (for public pages only). Possible values: *'0' - disabled,, *'1' - enabled.
      */
     places?: boolean | number;
     /**
-     * Contacts settings (for public pages only). Possible values: *'0' – disabled,, *'1' – enabled.
+     * Contacts settings (for public pages only). Possible values: *'0' - disabled,, *'1' - enabled.
      */
     contacts?: boolean | number;
     /**
@@ -2411,11 +2394,11 @@ export interface GroupsEditParams {
      */
     messages?: boolean | number;
     /**
-     * Market settings. Possible values: *'0' – disabled,, *'1' – enabled.
+     * Market settings. Possible values: *'0' - disabled,, *'1' - enabled.
      */
     market?: boolean | number;
     /**
-     * market comments settings. Possible values: *'0' – disabled,, *'1' – enabled.
+     * market comments settings. Possible values: *'0' - disabled,, *'1' - enabled.
      */
     market_comments?: boolean | number;
     /**
@@ -2427,11 +2410,11 @@ export interface GroupsEditParams {
      */
     market_wiki?: number;
     /**
-     * Obscene expressions filter in comments. Possible values: , *'0' – disabled,, *'1' – enabled.
+     * Obscene expressions filter in comments. Possible values: , *'0' - disabled,, *'1' - enabled.
      */
     obscene_filter?: boolean | number;
     /**
-     * Stopwords filter in comments. Possible values: , *'0' – disabled,, *'1' – enabled.
+     * Stopwords filter in comments. Possible values: , *'0' - disabled,, *'1' - enabled.
      */
     obscene_stopwords?: boolean | number;
     /**
@@ -2607,11 +2590,8 @@ export interface GroupsGetBannedParams {
 }
 
 export interface GroupsGetByIdParams {
-    /**
-     * ID or screen name of the community.
-     */
-    group_id?: string;
-    group_ids?: string[] | string;
+    group_ids?: any[];
+    group_id?: any;
     fields?: Objects.GroupsFields[];
     [key: string]: any;
 }
@@ -2656,11 +2636,11 @@ export interface GroupsGetCatalogParams {
 
 export interface GroupsGetCatalogInfoParams {
     /**
-     * 1 – to return communities count and three communities for preview. By default: 0.
+     * 1 - to return communities count and three communities for preview. By default: 0.
      */
     extended?: boolean | number;
     /**
-     * 1 – to return subcategories info. By default: 0.
+     * 1 - to return subcategories info. By default: 0.
      */
     subcategories?: boolean | number;
     [key: string]: any;
@@ -2705,7 +2685,7 @@ export interface GroupsGetInvitesParams {
 
 export interface GroupsGetLongPollServerParams {
     /**
-     * Community ID
+     * Community ID.
      */
     group_id: number;
     [key: string]: any;
@@ -2737,7 +2717,7 @@ export interface GroupsGetMembersParams {
      */
     count?: number;
     /**
-     * *'friends' – only friends in this community will be returned,, *'unsure' – only those who pressed 'I may attend' will be returned (if it's an event).
+     * *'friends' - only friends in this community will be returned,, *'unsure' - only those who pressed 'I may attend' will be returned (if it's an event).
      */
     filter?: "friends" | "unsure" | "managers" | "donut";
     fields?: Objects.UsersFields[];
@@ -3285,12 +3265,79 @@ export interface GroupsTagUpdateParams {
 export interface GroupsToggleMarketParams {
     group_id: number;
     state?: Objects.GroupsMarketState;
+    ref?: string;
     [key: string]: any;
 }
 
 export interface GroupsUnbanParams {
     group_id: number;
     owner_id?: number;
+    [key: string]: any;
+}
+
+export interface LeadFormsCreateParams {
+    group_id: number;
+    name: string;
+    title: string;
+    description: string;
+    questions: string;
+    policy_link_url: string;
+    photo?: string;
+    confirmation?: string;
+    site_link_url?: string;
+    active?: boolean | number;
+    once_per_user?: boolean | number;
+    pixel_code?: string;
+    notify_admins?: number[] | number;
+    notify_emails?: string[] | string;
+    [key: string]: any;
+}
+
+export interface LeadFormsDeleteParams {
+    group_id: number;
+    form_id: number;
+    [key: string]: any;
+}
+
+export interface LeadFormsGetParams {
+    group_id: number;
+    form_id: number;
+    [key: string]: any;
+}
+
+export interface LeadFormsGetLeadsParams {
+    group_id: number;
+    form_id: number;
+    limit?: number;
+    next_page_token?: string;
+    [key: string]: any;
+}
+
+export interface LeadFormsGetUploadURLParams {
+    [key: string]: any;
+}
+
+export interface LeadFormsListParams {
+    group_id: number;
+    [key: string]: any;
+}
+
+export interface LeadFormsUpdateParams {
+    group_id: number;
+    form_id: number;
+    name: string;
+    title: string;
+    description: string;
+    questions: string;
+    policy_link_url: string;
+    photo?: string;
+    confirmation?: string;
+    site_link_url?: string;
+    active?: boolean | number;
+    once_per_user?: boolean | number;
+    pixel_code?: string;
+    notify_admins?: number[] | number;
+    notify_emails?: string[] | string;
     [key: string]: any;
 }
 
@@ -3422,6 +3469,7 @@ export interface MarketAddParams {
     dimension_height?: number;
     dimension_length?: number;
     weight?: number;
+    sku?: string;
     [key: string]: any;
 }
 
@@ -3439,9 +3487,13 @@ export interface MarketAddAlbumParams {
      */
     photo_id?: number;
     /**
-     * Set as main ('1' – set, '0' – no).
+     * Set as main ('1' - set, '0' - no).
      */
     main_album?: boolean | number;
+    /**
+     * Set as hidden
+     */
+    is_hidden?: boolean | number;
     [key: string]: any;
 }
 
@@ -3450,10 +3502,7 @@ export interface MarketAddToAlbumParams {
      * ID of an item owner community.
      */
     owner_id: number;
-    /**
-     * Item ID.
-     */
-    item_id: number;
+    item_ids?: number[] | number;
     album_ids?: number[] | number;
     [key: string]: any;
 }
@@ -3551,7 +3600,7 @@ export interface MarketEditParams {
     /**
      * Item price.
      */
-    price: number;
+    price?: number;
     /**
      * Item status ('1' — deleted, '0' — not deleted).
      */
@@ -3559,7 +3608,7 @@ export interface MarketEditParams {
     /**
      * Cover photo ID.
      */
-    main_photo_id: number;
+    main_photo_id?: number;
     /**
      * Url for button in market item.
      */
@@ -3586,9 +3635,13 @@ export interface MarketEditAlbumParams {
      */
     photo_id?: number;
     /**
-     * Set as main ('1' – set, '0' – no).
+     * Set as main ('1' - set, '0' - no).
      */
     main_album?: boolean | number;
+    /**
+     * Set as hidden
+     */
+    is_hidden?: boolean | number;
     [key: string]: any;
 }
 
@@ -3638,9 +3691,25 @@ export interface MarketGetParams {
      */
     offset?: number;
     /**
-     * '1' – method will return additional fields: 'likes, can_comment, car_repost, photos'. These parameters are not returned by default.
+     * '1' - method will return additional fields: 'likes, can_comment, car_repost, photos'. These parameters are not returned by default.
      */
     extended?: boolean | number;
+    /**
+     * Items update date from (format: yyyy-mm-dd)
+     */
+    date_from?: string;
+    /**
+     * Items update date to (format: yyyy-mm-dd)
+     */
+    date_to?: string;
+    /**
+     * Add variants to response if exist
+     */
+    need_variants?: boolean | number;
+    /**
+     * Add disabled items to response
+     */
+    with_disabled?: boolean | number;
     album_id?: number;
     [key: string]: any;
 }
@@ -3672,7 +3741,7 @@ export interface MarketGetAlbumsParams {
 
 export interface MarketGetByIdParams {
     /**
-     * '1' – to return additional fields: 'likes, can_comment, car_repost, photos'. By default: '0'.
+     * '1' - to return additional fields: 'likes, can_comment, car_repost, photos'. By default: '0'.
      */
     extended?: boolean | number;
     item_ids?: string[] | string;
@@ -3740,6 +3809,7 @@ export interface MarketGetOrderByIdParams {
 }
 
 export interface MarketGetOrderItemsParams {
+    user_id?: number;
     order_id: number;
     offset?: number;
     count?: number;
@@ -3747,6 +3817,14 @@ export interface MarketGetOrderItemsParams {
 }
 
 export interface MarketGetOrdersParams {
+    /**
+     * Orders status updated date from (format: yyyy-mm-dd)
+     */
+    date_from?: string;
+    /**
+     * Orders status updated date to (format: yyyy-mm-dd)
+     */
+    date_to?: string;
     offset?: number;
     count?: number;
     extended?: boolean | number;
@@ -3896,12 +3974,30 @@ export interface MarketSearchParams {
      */
     count?: number;
     /**
-     * '1' – to return additional fields: 'likes, can_comment, car_repost, photos'. By default: '0'.
+     * '1' - to return additional fields: 'likes, can_comment, car_repost, photos'. By default: '0'.
      */
     extended?: boolean | number;
+    /**
+     * Add variants to response if exist
+     */
+    need_variants?: boolean | number;
     album_id?: number;
     sort?: 0 | 1 | 2 | 3;
-    status?: 0 | 2;
+    status?: number[] | number;
+    [key: string]: any;
+}
+
+export interface MarketSearchItemsParams {
+    q: string;
+    offset?: number;
+    count?: number;
+    category_id?: number;
+    price_from?: number;
+    price_to?: number;
+    sort_by?: 1 | 2 | 3;
+    sort_direction?: 0 | 1;
+    country?: number;
+    city?: number;
     [key: string]: any;
 }
 
@@ -3950,7 +4046,12 @@ export interface MessagesDeleteParams {
      * '1' — delete message for for all.
      */
     delete_for_all?: boolean | number;
+    /**
+     * Destination ID. "For user: 'User ID', e.g. '12345'. For chat: '2000000000' + 'chat_id', e.g. '2000000001'. For community: '- community ID', e.g. '-12345'. "
+     */
+    peer_id?: number;
     message_ids?: number[] | number;
+    cmids?: number[] | number;
     [key: string]: any;
 }
 
@@ -4021,6 +4122,7 @@ export interface MessagesEditParams {
      */
     group_id?: number;
     dont_parse_links?: boolean | number;
+    disable_mentions?: boolean | number;
     message_id?: number;
     conversation_message_id?: number;
     template?: string;
@@ -4111,7 +4213,7 @@ export interface MessagesGetConversationsParams {
     /**
      * Filter to apply: 'all' — all conversations, 'unread' — conversations with unread messages, 'important' — conversations, marked as important (only for community messages), 'unanswered' — conversations, marked as unanswered (only for community messages)
      */
-    filter?: "all" | "important" | "unanswered" | "unread";
+    filter?: "all" | "archive" | "important" | "unanswered" | "unread";
     /**
      * '1' — return extra information about users and communities
      */
@@ -4551,8 +4653,8 @@ export interface MessagesSendParams {
     forward_messages?: number[] | number;
     forward?: any;
     keyboard?: any;
-    template?: any;
-    payload?: string;
+    template?: string;
+    payload?: any;
     dont_parse_links?: boolean | number;
     disable_mentions?: boolean | number;
     intent?: "account_update" | "bot_ad_invite" | "bot_ad_promo" | "confirmed_notification" | "customer_support" | "default" | "game_notification" | "moderated_newsletter" | "non_promo_newsletter" | "promo_newsletter" | "purchase_update";
@@ -4648,7 +4750,7 @@ export interface NewsfeedGetParams {
      * Number of news items to return (default 50, maximum 100). For auto feed, you can use the 'new_offset' parameter returned by this method.
      */
     count?: number;
-    filters?: Objects.NewsfeedFilters[];
+    filters?: Objects.NewsfeedNewsfeedItemType[];
     fields?: Objects.BaseUserGroupFields[];
     section?: string;
     [key: string]: any;
@@ -4771,7 +4873,7 @@ export interface NewsfeedGetSuggestedSourcesParams {
 
 export interface NewsfeedIgnoreItemParams {
     /**
-     * Item owner's identifier (user or community), "Note that community id must be negative. 'owner_id=1' – user , 'owner_id=-1' – community "
+     * Item owner's identifier (user or community), "Note that community id must be negative. 'owner_id=1' - user , 'owner_id=-1' - community "
      */
     owner_id?: number;
     /**
@@ -4835,7 +4937,7 @@ export interface NewsfeedSearchParams {
 
 export interface NewsfeedUnignoreItemParams {
     /**
-     * Item owner's identifier (user or community), "Note that community id must be negative. 'owner_id=1' – user , 'owner_id=-1' – community "
+     * Item owner's identifier (user or community), "Note that community id must be negative. 'owner_id=1' - user , 'owner_id=-1' - community "
      */
     owner_id: number;
     /**
@@ -5036,6 +5138,10 @@ export interface NotificationsMarkAsViewedParams {
 }
 
 export interface NotificationsSendMessageParams {
+    /**
+     * Type of sending (delivering) notifications: 'immediately' — push and bell notifications will be delivered as soon as possible, 'delayed' — push and bell notifications will be delivered in the most comfortable time for the user, 'delayed_push' — only push notifications will be delivered in the most comfortable time, while the bell notifications will be delivered as soon as possible
+     */
+    sending_mode?: "delayed" | "delayed_push" | "immediately";
     user_ids?: number[] | number;
     message: string;
     fragment?: string;
@@ -5519,19 +5625,19 @@ export interface PhotosGetAllParams {
      */
     count?: number;
     /**
-     * '1' – to return image sizes in [vk.com/dev/photo_sizes|special format].
+     * '1' - to return image sizes in [vk.com/dev/photo_sizes|special format].
      */
     photo_sizes?: boolean | number;
     /**
-     * '1' – to return photos only from standard albums, '0' – to return all photos including those in service albums, e.g., 'My wall photos' (default)
+     * '1' - to return photos only from standard albums, '0' - to return all photos including those in service albums, e.g., 'My wall photos' (default)
      */
     no_service_albums?: boolean | number;
     /**
-     * '1' – to show information about photos being hidden from the block above the wall.
+     * '1' - to show information about photos being hidden from the block above the wall.
      */
     need_hidden?: boolean | number;
     /**
-     * '1' – not to return photos being hidden from the block above the wall. Works only with owner_id>0, no_service_albums is ignored.
+     * '1' - not to return photos being hidden from the block above the wall. Works only with owner_id>0, no_service_albums is ignored.
      */
     skip_hidden?: boolean | number;
     [key: string]: any;
@@ -5698,7 +5804,7 @@ export interface PhotosGetOwnerCoverPhotoUploadServerParams {
 
 export interface PhotosGetOwnerPhotoUploadServerParams {
     /**
-     * identifier of a community or current user. "Note that community id must be negative. 'owner_id=1' – user, 'owner_id=-1' – community, "
+     * identifier of a community or current user. "Note that community id must be negative. 'owner_id=1' - user, 'owner_id=-1' - community, "
      */
     owner_id?: number;
     [key: string]: any;
@@ -5888,7 +5994,7 @@ export interface PhotosReportParams {
      */
     photo_id: number;
     /**
-     * Reason for the complaint: '0' – spam, '1' – child pornography, '2' – extremism, '3' – violence, '4' – drug propaganda, '5' – adult material, '6' – insult, abuse
+     * Reason for the complaint: '0' - spam, '1' - child pornography, '2' - extremism, '3' - violence, '4' - drug propaganda, '5' - adult material, '6' - insult, abuse
      */
     reason?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
     [key: string]: any;
@@ -5904,7 +6010,7 @@ export interface PhotosReportCommentParams {
      */
     comment_id: number;
     /**
-     * Reason for the complaint: '0' – spam, '1' – child pornography, '2' – extremism, '3' – violence, '4' – drug propaganda, '5' – adult material, '6' – insult, abuse
+     * Reason for the complaint: '0' - spam, '1' - child pornography, '2' - extremism, '3' - violence, '4' - drug propaganda, '5' - adult material, '6' - insult, abuse
      */
     reason?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
     [key: string]: any;
@@ -6147,7 +6253,7 @@ export interface PollsCreateParams {
      */
     question?: string;
     /**
-     * '1' – anonymous poll, participants list is hidden,, '0' – public poll, participants list is available,, Default value is '0'.
+     * '1' - anonymous poll, participants list is hidden,, '0' - public poll, participants list is available,, Default value is '0'.
      */
     is_anonymous?: boolean | number;
     /**
@@ -6160,6 +6266,7 @@ export interface PollsCreateParams {
     add_answers?: string;
     is_multiple?: boolean | number;
     end_date?: number;
+    app_id?: number;
     photo_id?: number;
     background_id?: "1" | "2" | "3" | "4" | "6" | "8" | "9";
     disable_unvote?: boolean | number;
@@ -6201,7 +6308,7 @@ export interface PollsEditParams {
      */
     add_answers?: string;
     /**
-     * object containing answers that need to be edited,, key – answer id, value – new answer text. Example: {"382967099":"option1", "382967103":"option2"}"
+     * object containing answers that need to be edited,, key - answer id, value - new answer text. Example: {"382967099":"option1", "382967103":"option2"}"
      */
     edit_answers?: string;
     /**
@@ -6224,7 +6331,7 @@ export interface PollsGetByIdParams {
      */
     owner_id?: number;
     /**
-     * '1' – poll is in a board, '0' – poll is on a wall. '0' by default.
+     * '1' - poll is in a board, '0' - poll is on a wall. '0' by default.
      */
     is_board?: boolean | number;
     /**
@@ -6351,11 +6458,11 @@ export interface SecureAddAppEventParams {
      */
     user_id: number;
     /**
-     * there are 2 default activities: , * 1 – level. Works similar to ,, * 2 – points, saves points amount, Any other value is for saving completed missions
+     * there are 2 default activities: , * 1 - level. Works similar to ,, * 2 - points, saves points amount, Any other value is for saving completed missions
      */
     activity_id: number;
     /**
-     * depends on activity_id: * 1 – number, current level number,, * 2 – number, current user's points amount, , Any other value is ignored
+     * depends on activity_id: * 1 - number, current level number,, * 2 - number, current user's points amount, , Any other value is ignored
      */
     value?: number;
     [key: string]: any;
@@ -6738,6 +6845,8 @@ export interface StoriesHideReplyParams {
 
 export interface StoriesSaveParams {
     upload_results?: string[] | string;
+    extended?: boolean | number;
+    fields?: string[] | string;
     [key: string]: any;
 }
 
@@ -6782,7 +6891,7 @@ export interface UsersGetParams {
      * Case for declension of user name and surname: 'nom' — nominative (default), 'gen' — genitive , 'dat' — dative, 'acc' — accusative , 'ins' — instrumental , 'abl' — prepositional
      */
     name_case?: "nom" | "gen" | "dat" | "acc" | "ins" | "abl";
-    user_ids?: string[] | string;
+    user_ids?: any[];
     fields?: Objects.UsersFields[];
     [key: string]: any;
 }
@@ -6835,7 +6944,7 @@ export interface UsersReportParams {
      */
     user_id: number;
     /**
-     * Type of complaint: 'porn' – pornography, 'spam' – spamming, 'insult' – abusive behavior, 'advertisement' – disruptive advertisements
+     * Type of complaint: 'porn' - pornography, 'spam' - spamming, 'insult' - abusive behavior, 'advertisement' - disruptive advertisements
      */
     type: "porn" | "spam" | "insult" | "advertisement";
     /**
@@ -7233,6 +7342,7 @@ export interface VideoGetParams {
      */
     extended?: boolean | number;
     videos?: string[] | string;
+    fields?: string[] | string;
     [key: string]: any;
 }
 
@@ -7383,7 +7493,7 @@ export interface VideoReportParams {
      */
     video_id: number;
     /**
-     * Reason for the complaint: '0' – spam, '1' – child pornography, '2' – extremism, '3' – violence, '4' – drug propaganda, '5' – adult material, '6' – insult, abuse
+     * Reason for the complaint: '0' - spam, '1' - child pornography, '2' - extremism, '3' - violence, '4' - drug propaganda, '5' - adult material, '6' - insult, abuse
      */
     reason?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
     /**
@@ -7407,7 +7517,7 @@ export interface VideoReportCommentParams {
      */
     comment_id: number;
     /**
-     * Reason for the complaint: , 0 – spam , 1 – child pornography , 2 – extremism , 3 – violence , 4 – drug propaganda , 5 – adult material , 6 – insult, abuse
+     * Reason for the complaint: , 0 - spam , 1 - child pornography , 2 - extremism , 3 - violence , 4 - drug propaganda , 5 - adult material , 6 - insult, abuse
      */
     reason?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
     [key: string]: any;
@@ -7481,7 +7591,7 @@ export interface VideoSearchParams {
     /**
      * Search query string (e.g., 'The Beatles').
      */
-    q: string;
+    q?: string;
     /**
      * Sort order: '1' — by duration, '2' — by relevance, '0' — by date added
      */
@@ -7502,6 +7612,7 @@ export interface VideoSearchParams {
      * Number of videos to return.
      */
     count?: number;
+    live?: boolean | number;
     filters?: ("youtube" | "vimeo" | "short" | "long")[] | ("youtube" | "vimeo" | "short" | "long");
     search_own?: boolean | number;
     longer?: number;
@@ -7587,6 +7698,10 @@ export interface WallEditParams {
      * (Required if 'attachments' is not set.) Text of the post.
      */
     message?: string;
+    /**
+     * Topic ID. Allowed values can be obtained from newsfeed.getPostTopics method
+     */
+    topic_id?: 0 | 1 | 7 | 12 | 16 | 19 | 21 | 23 | 25 | 26 | 32 | 43;
     post_id: number;
     friends_only?: boolean | number;
     attachments?: string[] | string;
@@ -7690,13 +7805,10 @@ export interface WallGetParams {
      */
     count?: number;
     /**
-     * Filter to apply: 'owner' — posts by the wall owner, 'others' — posts by someone else, 'all' — posts by the wall owner and others (default), 'postponed' — timed posts (only available for calls with an 'access_token'), 'suggests' — suggested posts on a community wall
-     */
-    filter?: "owner" | "others" | "all" | "postponed" | "suggests";
-    /**
      * '1' — to return 'wall', 'profiles', and 'groups' fields, '0' — to return no additional fields (default)
      */
     extended?: boolean | number;
+    filter?: Objects.WallGetFilter;
     fields?: Objects.BaseUserGroupFields[];
     [key: string]: any;
 }
@@ -7855,6 +7967,10 @@ export interface WallPostParams {
      * Post ID. Used for publishing of scheduled and suggested posts.
      */
     post_id?: number;
+    /**
+     * Topic ID. Allowed values can be obtained from newsfeed.getPostTopics method
+     */
+    topic_id?: 0 | 1 | 7 | 12 | 16 | 19 | 21 | 23 | 25 | 26 | 32 | 43;
     attachments?: string[] | string;
     guid?: string;
     mark_as_ads?: boolean | number;
@@ -7924,7 +8040,7 @@ export interface WallReportCommentParams {
      */
     comment_id: number;
     /**
-     * Reason for the complaint: '0' – spam, '1' – child pornography, '2' – extremism, '3' – violence, '4' – drug propaganda, '5' – adult material, '6' – insult, abuse
+     * Reason for the complaint: '0' - spam, '1' - child pornography, '2' - extremism, '3' - violence, '4' - drug propaganda, '5' - adult material, '6' - insult, abuse
      */
     reason?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
     [key: string]: any;
@@ -7940,7 +8056,7 @@ export interface WallReportPostParams {
      */
     post_id: number;
     /**
-     * Reason for the complaint: '0' – spam, '1' – child pornography, '2' – extremism, '3' – violence, '4' – drug propaganda, '5' – adult material, '6' – insult, abuse
+     * Reason for the complaint: '0' - spam, '1' - child pornography, '2' - extremism, '3' - violence, '4' - drug propaganda, '5' - adult material, '6' - insult, abuse
      */
     reason?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
     [key: string]: any;
@@ -8002,7 +8118,7 @@ export interface WallSearchParams {
      */
     query?: string;
     /**
-     * '1' – returns only page owner's posts.
+     * '1' - returns only page owner's posts.
      */
     owners_only?: boolean | number;
     /**

@@ -1,4 +1,5 @@
-import fetch from 'node-fetch';
+// eslint-disable-next-line import/no-extraneous-dependencies
+import { jest } from '@jest/globals';
 
 import {
 	VK,
@@ -8,6 +9,8 @@ import {
 
 	PhotoAttachment
 } from '..';
+
+import { fetch } from '../src/utils/fetch';
 
 const { TOKEN } = process.env;
 
@@ -26,7 +29,7 @@ describe('Uploads', (): void => {
 			await upload.messagePhoto();
 		} catch (error) {
 			expect(error).toBeInstanceOf(UploadError);
-			expect(error.code).toEqual(UploadErrorCode.MISSING_PARAMETERS);
+			expect((error as UploadError).code).toEqual(UploadErrorCode.MISSING_PARAMETERS);
 		}
 
 		try {
@@ -34,7 +37,7 @@ describe('Uploads', (): void => {
 			await upload.messagePhoto({});
 		} catch (error) {
 			expect(error).toBeInstanceOf(UploadError);
-			expect(error.code).toEqual(UploadErrorCode.MISSING_PARAMETERS);
+			expect((error as UploadError).code).toEqual(UploadErrorCode.MISSING_PARAMETERS);
 		}
 	});
 
@@ -47,7 +50,7 @@ describe('Uploads', (): void => {
 			});
 		} catch (error) {
 			expect(error).toBeInstanceOf(UploadError);
-			expect(error.code).toEqual(UploadErrorCode.NO_FILES_TO_UPLOAD);
+			expect((error as UploadError).code).toEqual(UploadErrorCode.NO_FILES_TO_UPLOAD);
 		}
 	});
 
@@ -67,7 +70,7 @@ describe('Uploads', (): void => {
 			});
 		} catch (error) {
 			expect(error).toBeInstanceOf(UploadError);
-			expect(error.code).toEqual(UploadErrorCode.EXCEEDED_MAX_FILES);
+			expect((error as UploadError).code).toEqual(UploadErrorCode.EXCEEDED_MAX_FILES);
 		}
 	});
 
@@ -78,7 +81,7 @@ describe('Uploads', (): void => {
 		return;
 	}
 
-	it('should upload image to wall from url', async (): Promise<void> => {
+	it('should upload image to message from url', async (): Promise<void> => {
 		const photo = await upload.messagePhoto({
 			source: {
 				value: IMAGE_URL
@@ -90,9 +93,9 @@ describe('Uploads', (): void => {
 		expect(photo.ownerId).not.toEqual(0);
 	});
 
-	it('should upload image to wall from buffer', async (): Promise<void> => {
+	it('should upload image to message from buffer', async (): Promise<void> => {
 		const response = await fetch(IMAGE_URL);
-		const buffer = await response.buffer();
+		const buffer = Buffer.from(await response.arrayBuffer());
 
 		const photo = await upload.messagePhoto({
 			source: {
@@ -105,12 +108,12 @@ describe('Uploads', (): void => {
 		expect(photo.ownerId).not.toEqual(0);
 	});
 
-	it('should upload image to wall from stream', async (): Promise<void> => {
+	it('should upload image to message from stream', async (): Promise<void> => {
 		const response = await fetch(IMAGE_URL);
 
 		const photo = await upload.messagePhoto({
 			source: {
-				value: response.body,
+				value: response.body!,
 				// @ts-expect-error
 				contentLength: response.headers.get('content-length')
 			}

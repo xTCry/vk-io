@@ -49,6 +49,7 @@ const groupMethods = [
 	'polls',
 	'podcasts',
 	'prettyCards',
+	'store',
 	'search',
 	'secure',
 	'stats',
@@ -175,6 +176,29 @@ export interface IAPIOptions {
 	 */
 	apiExecuteMethods: string[];
 
+	/**
+	 * Methods that are not supported in execute (apiMode=parallel & apiMode=parallel_selected)
+	 *
+	 * Basically it's upload methods
+	 * @defaultValue ```ts
+	 * [
+     * 'photos.save',
+     * 'photos.saveWallPhoto',
+     * 'photos.saveOwnerPhoto',
+     * 'photos.saveMessagesPhoto',
+     * 'messages.setChatPhoto',
+     * 'photos.saveMarketPhoto',
+     * 'photos.saveMarketAlbumPhoto',
+     * 'audio.save',
+     * 'docs.save',
+     * 'photos.saveOwnerCoverPhoto',
+     * 'stories.save',
+     * 'polls.savePhoto'
+     * ]
+	 * ```
+	 */
+	apiExecuteUnsupportedMethods: string[];
+
 	callbackService?: CallbackService;
 }
 
@@ -203,7 +227,7 @@ class API {
 			apiRequestMode: 'sequential',
 			apiWait: 3e3,
 			apiLimit: 3,
-			apiVersion: '5.130',
+			apiVersion: '5.131',
 			apiBaseUrl: 'https://api.vk.com/method',
 			apiRetryLimit: 3,
 			apiTimeout: 10e3,
@@ -213,6 +237,20 @@ class API {
 			},
 			apiExecuteCount: 25,
 			apiExecuteMethods: ['messages.send'],
+			apiExecuteUnsupportedMethods: [
+				'photos.save',
+				'photos.saveWallPhoto',
+				'photos.saveOwnerPhoto',
+				'photos.saveMessagesPhoto',
+				'messages.setChatPhoto',
+				'photos.saveMarketPhoto',
+				'photos.saveMarketAlbumPhoto',
+				'audio.save',
+				'docs.save',
+				'photos.saveOwnerCoverPhoto',
+				'stories.save',
+				'polls.savePhoto'
+			],
 
 			...options
 		};
@@ -288,7 +326,7 @@ class API {
 
 		if (!Worker) {
 			throw new VKError({
-				message: 'Unsuported api mode',
+				message: 'Unsupported api mode',
 				code: 'UNSUPPORTED_MODE'
 			});
 		}

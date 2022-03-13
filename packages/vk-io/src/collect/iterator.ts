@@ -1,7 +1,13 @@
 import createDebug from 'debug';
 
 import { API, Objects } from '../api';
-import { CollectError, APIErrorCode, CollectErrorCode } from '../errors';
+import {
+	APIError,
+	CollectError,
+
+	APIErrorCode,
+	CollectErrorCode
+} from '../errors';
 
 import { getExecuteCode } from './execute-code';
 
@@ -129,7 +135,7 @@ export async function* createCollectIterator<T>({
 
 			retries += 1;
 
-			if (error.code === APIErrorCode.APP_AUTH) {
+			if ((error as APIError).code === APIErrorCode.APP_AUTH) {
 				supportExecute = false;
 
 				debug('execute not supported in token');
@@ -137,7 +143,7 @@ export async function* createCollectIterator<T>({
 				continue;
 			}
 
-			if (error.code === APIErrorCode.RUNTIME) {
+			if ((error as APIError).code === APIErrorCode.RUNTIME) {
 				// eslint-disable-next-line no-param-reassign
 				parallelRequests -= 1;
 

@@ -15,7 +15,7 @@ const jsonSchemaTypes = {
 			const {
 				type: arrayType,
 				description,
-				required
+				required = false
 			} = jsonSchemaTypes[items.type]({
 				namespace,
 				type: items
@@ -39,12 +39,12 @@ const jsonSchemaTypes = {
 		if (items && items.$ref) {
 			const [, group, refName] = items.$ref.match(MATCH_REF_RE);
 
-			const refIdentifierName = ts.createIdentifier(
+			const refIdentifierName = ts.factory.createIdentifier(
 				toPascalCase(refName)
 			);
 
 			const refIdentifier = group !== '' && namespace
-				? ts.createQualifiedName(
+				? ts.factory.createQualifiedName(
 					namespace,
 					refIdentifierName
 				)
@@ -58,7 +58,7 @@ const jsonSchemaTypes = {
 		return {
 			kind: type,
 			type: TypesGenerator.array(
-				ts.createKeywordTypeNode(
+				ts.factory.createKeywordTypeNode(
 					ts.SyntaxKind.AnyKeyword
 				)
 			)
@@ -73,7 +73,7 @@ const jsonSchemaTypes = {
 		type: 'enum' in type
 			? TypesGenerator.union(
 				type.enum.map(enumName => (
-					ts.createStringLiteral(String(enumName))
+					ts.factory.createStringLiteral(String(enumName))
 				))
 			)
 			: TypesGenerator.string,
@@ -90,7 +90,7 @@ const jsonSchemaTypes = {
 		type: 'enum' in type
 			? TypesGenerator.union(
 				type.enum.map(enumName => (
-					ts.createNumericLiteral(String(enumName))
+					ts.factory.createNumericLiteral(String(enumName))
 				))
 			)
 			: TypesGenerator.number,
@@ -125,16 +125,16 @@ const jsonSchemaTypes = {
 	})
 };
 
-function parseJSONObject(name, type, payload = {}) {
+function parseJSONObject(name, type, payload = {}, { preferRequired } = { preferRequired: false }) {
 	if (type.$ref) {
 		const [, group, refName] = type.$ref.match(MATCH_REF_RE);
 
-		const refIdentifierName = ts.createIdentifier(
+		const refIdentifierName = ts.factory.createIdentifier(
 			toPascalCase(refName)
 		);
 
 		const refIdentifier = group !== '' && payload.namespace
-			? ts.createQualifiedName(
+			? ts.factory.createQualifiedName(
 				payload.namespace,
 				refIdentifierName
 			)
@@ -155,12 +155,12 @@ function parseJSONObject(name, type, payload = {}) {
 			if (obj.$ref) {
 				const [, group, refName] = obj.$ref.match(MATCH_REF_RE);
 
-				const refIdentifierName = ts.createIdentifier(
+				const refIdentifierName = ts.factory.createIdentifier(
 					toPascalCase(refName)
 				);
 
 				const refIdentifier = group !== '' && payload.namespace
-					? ts.createQualifiedName(
+					? ts.factory.createQualifiedName(
 						payload.namespace,
 						refIdentifierName
 					)
@@ -183,12 +183,12 @@ function parseJSONObject(name, type, payload = {}) {
 					if (propertyValue.$ref) {
 						const [, group, refName] = propertyValue.$ref.match(MATCH_REF_RE);
 
-						const refIdentifierName = ts.createIdentifier(
+						const refIdentifierName = ts.factory.createIdentifier(
 							toPascalCase(refName)
 						);
 
 						const refIdentifier = group !== '' && payload.namespace
-							? ts.createQualifiedName(
+							? ts.factory.createQualifiedName(
 								payload.namespace,
 								refIdentifierName
 							)
@@ -198,7 +198,7 @@ function parseJSONObject(name, type, payload = {}) {
 							name: propertyName,
 
 							type: refIdentifier,
-							required: false
+							required: preferRequired || false
 						});
 
 						continue;
@@ -215,7 +215,7 @@ function parseJSONObject(name, type, payload = {}) {
 							name: propertyName,
 
 							type: nodeType,
-							required: false
+							required: preferRequired || false
 						});
 					}
 				}
@@ -236,26 +236,44 @@ function parseJSONObject(name, type, payload = {}) {
 
 				name: toPascalCase(name),
 				kind: 'type',
-				type: ts.createIntersectionTypeNode(allOf)
+				type: ts.factory.createIntersectionTypeNode(allOf)
 			};
 		}
 	}
 
 	if (type.type !== 'object') {
+		if (Array.isArray(type.type) || !jsonSchemaTypes[type.type]) {
+			return {
+				name,
+				type: ts.factory.createKeywordTypeNode(
+					ts.SyntaxKind.AnyKeyword
+				)
+			};
+		}
+
+		if (preferRequired !== false) {
+			console.log('preferRequired', preferRequired);
+		}
+
+		// preferRequired
+
+		const resolvedType = jsonSchemaTypes[type.type]({
+			...payload,
+
+			type
+		});
+
 		return {
 			name,
-			...jsonSchemaTypes[type.type]({
-				...payload,
-
-				type
-			})
+			...resolvedType,
+			required: preferRequired || resolvedType.required
 		};
 	}
 
 	if (!type.properties) {
 		return {
 			name,
-			type: ts.createKeywordTypeNode(
+			type: ts.factory.createKeywordTypeNode(
 				ts.SyntaxKind.AnyKeyword
 			)
 		};
@@ -267,20 +285,20 @@ function parseJSONObject(name, type, payload = {}) {
 	});
 
 	interfaceType.methods.push(
-		ts.createIndexSignature(
+		ts.factory.createIndexSignature(
 			undefined,
 			undefined,
-			[ts.createParameter(
+			[ts.factory.createParameterDeclaration(
 				undefined,
 				undefined,
 				undefined,
 				'key',
 				undefined,
-				ts.createKeywordTypeNode(
+				ts.factory.createKeywordTypeNode(
 					ts.SyntaxKind.StringKeyword
 				)
 			)],
-			ts.createKeywordTypeNode(
+			ts.factory.createKeywordTypeNode(
 				ts.SyntaxKind.AnyKeyword
 			)
 		)
@@ -308,7 +326,9 @@ function parseJSONObject(name, type, payload = {}) {
 				name: propertyName,
 
 				type: nodeType,
-				required: required.includes(propertyName)
+				required: preferRequired || typeof required !== 'boolean'
+					? required.includes(propertyName)
+					: required
 			});
 		}
 	}
@@ -320,10 +340,10 @@ function parseJSONObject(name, type, payload = {}) {
 	};
 }
 
-function parseJSONSchema(schema, payload) {
+function parseJSONSchema(schema, payload, options) {
 	return Object.entries(schema)
 		.map(([key, value]) => (
-			parseJSONObject(key, value, payload)
+			parseJSONObject(key, value, payload, options)
 		));
 }
 

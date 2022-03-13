@@ -1,6 +1,6 @@
 import { Attachment, AttachmentFactoryOptions } from './attachment';
 import { ExternalAttachment } from './external';
-import { Attachmentable } from '../shared/attachmentable';
+import { Attachmentable } from '../shared';
 
 // eslint-disable-next-line import/no-cycle
 import { transformAttachments } from './helpers';
@@ -29,6 +29,12 @@ export interface IWallAttachmentPayload {
 		groups_can_post: number;
 		can_close: number;
 		can_open: number;
+	};
+	copyright?: {
+		id?: number;
+		link: string;
+		name: string;
+		type: string;
 	};
 	likes?: {
 		count: number;
@@ -60,6 +66,19 @@ export interface IWallAttachmentPayload {
 	is_pinned?: number;
 	marked_as_ads?: number;
 	is_favorite?: number;
+	donut?: {
+		is_donut: boolean;
+		paid_duration?: number;
+		placeholder?: {
+			text: string;
+		};
+		can_publish_free_copy?: boolean;
+		edit_mode?: 'all' | 'duration';
+		durations?: {
+			id: number;
+			name: string;
+		}[];
+	}
 }
 
 export type WallAttachmentOptions =
@@ -98,7 +117,7 @@ class WallAttachment extends Attachment<IWallAttachmentPayload, AttachmentType.W
 			extended: 0
 		});
 
-		this.applyPayload(post as IWallAttachmentPayload);
+		this.applyPayload(post as unknown as IWallAttachmentPayload);
 
 		this.$filled = true;
 	}
@@ -378,22 +397,29 @@ class WallAttachment extends Attachment<IWallAttachmentPayload, AttachmentType.W
 	/**
 	 * Returns the likes info
 	 */
-	public get likes(): object | undefined {
+	public get likes(): IWallAttachmentPayload['likes'] | undefined {
 		return this.payload.likes;
 	}
 
 	/**
 	 * Returns the post source
 	 */
-	public get postSource(): object | undefined {
+	public get postSource(): IWallAttachmentPayload['post_source'] | undefined {
 		return this.payload.post_source;
 	}
 
 	/**
 	 * Returns the geo location
 	 */
-	public get geo(): object | undefined {
+	public get geo(): IWallAttachmentPayload['geo'] | undefined {
 		return this.payload.geo;
+	}
+
+	/**
+	 * Returns the copyright
+	 */
+	public get copyright(): IWallAttachmentPayload['copyright'] | undefined {
+		return this.payload.copyright;
 	}
 
 	/**
@@ -446,6 +472,7 @@ class WallAttachment extends Attachment<IWallAttachmentPayload, AttachmentType.W
 			'likes',
 			'postSource',
 			'geo',
+			'copyright',
 			'copyHistory',
 			'attachments'
 		]);

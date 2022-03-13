@@ -1,10 +1,10 @@
-import fetch from 'node-fetch';
 import createDebug from 'debug';
 import { AbortController } from 'abort-controller';
 
 import { URL, URLSearchParams } from 'url';
 
 import { API } from '../../api';
+import { fetch } from '../../utils/fetch';
 import { delay } from '../../utils/helpers';
 import { UpdatesError, UpdatesErrorCode } from '../../errors';
 import { IUpdatesOptions } from '../updates';
@@ -123,7 +123,7 @@ export class PollingTransport {
 
 			const { pollingWait, pollingRetryLimit } = this.options;
 
-			if (error.code !== NEED_RESTART && this.restarted !== pollingRetryLimit) {
+			if ((error as UpdatesError).code !== NEED_RESTART && this.restarted !== pollingRetryLimit) {
 				this.restarted += 1;
 
 				debug('longpoll restart request');
@@ -185,7 +185,8 @@ export class PollingTransport {
 				});
 			}
 
-			result = await response.json();
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			result = await response.json() as any;
 		} finally {
 			clearTimeout(interval);
 		}

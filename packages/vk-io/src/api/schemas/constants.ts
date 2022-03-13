@@ -181,6 +181,12 @@ export enum APIErrorCode {
      */
     NOT_IMPLEMENTED_YET = 33,
     /**
+     * Client version deprecated
+     *
+     * Code: `34`
+     */
+    CLIENT_VERSION_DEPRECATED = 34,
+    /**
      * Client update needed
      *
      * Code: `35`
@@ -222,6 +228,12 @@ export enum APIErrorCode {
      * Code: `41`
      */
     ADDITIONAL_SIGNUP_REQUIRED = 41,
+    /**
+     * IP is not allowed
+     *
+     * Code: `42`
+     */
+    IP_IS_NOT_ALLOWED = 42,
     /**
      * One of the parameters specified was missing or invalid
      *
@@ -330,12 +342,6 @@ export enum APIErrorCode {
      * Code: `147`
      */
     INSUFFICIENT_FUNDS = 147,
-    /**
-     * Access to the menu of the user denied
-     *
-     * Code: `148`
-     */
-    ACCESS_MENU = 148,
     /**
      * Invalid timestamp
      *
@@ -841,11 +847,41 @@ export enum APIErrorCode {
      */
     MESSAGES_PEER_BLOCKED_REASON_BY_TIME = 950,
     /**
+     * You can't access donut chat without subscription
+     *
+     * Code: `962`
+     */
+    MESSAGES_USER_NOT_DON = 962,
+    /**
+     * Message cannot be forwarded
+     *
+     * Code: `969`
+     */
+    MESSAGES_MESSAGE_CANNOT_BE_FORWARDED = 969,
+    /**
+     * Cannot pin an expiring message
+     *
+     * Code: `970`
+     */
+    MESSAGES_CANT_PIN_EXPIRING_MESSAGE = 970,
+    /**
      * Too many auth attempts, try again later
      *
      * Code: `1105`
      */
     AUTH_FLOOD_ERROR = 1105,
+    /**
+     * Anonymous token has expired
+     *
+     * Code: `1114`
+     */
+    AUTH_ANONYMOUS_TOKEN_HAS_EXPIRED = 1114,
+    /**
+     * Anonymous token is invalid
+     *
+     * Code: `1116`
+     */
+    AUTH_ANONYMOUS_TOKEN_IS_INVALID = 1116,
     /**
      * Invalid document id
      *
@@ -979,6 +1015,18 @@ export enum APIErrorCode {
      */
     MARKET_EXTENDED_NOT_ENABLED = 1409,
     /**
+     * Grouping items with different properties
+     *
+     * Code: `1412`
+     */
+    MARKET_GROUPING_ITEMS_WITH_DIFFERENT_PROPERTIES = 1412,
+    /**
+     * Grouping already has such variant
+     *
+     * Code: `1413`
+     */
+    MARKET_GROUPING_ALREADY_HAS_SUCH_VARIANT = 1413,
+    /**
      * Variant not found
      *
      * Code: `1416`
@@ -1056,6 +1104,12 @@ export enum APIErrorCode {
      * Code: `1438`
      */
     MARKET_NOT_ENABLED = 1438,
+    /**
+     * Main album can not be hidden
+     *
+     * Code: `1446`
+     */
+    MARKET_ALBUM_MAIN_HIDDEN = 1446,
     /**
      * Story has already expired
      *

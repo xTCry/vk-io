@@ -5,6 +5,8 @@ import { Middleware, compose, noopNext } from 'middleware-io';
 import { Agent, globalAgent } from 'https';
 
 import {
+	Composer,
+
 	Context,
 	VoteContext,
 	LikeContext,
@@ -25,6 +27,7 @@ import {
 	CommentContext,
 	NewAttachmentsContext,
 	DialogMessagesContext,
+	DialogNotificationSettingsContext,
 	VKPayTransactionContext,
 	DonutSubscriptionContext,
 	DonutSubscriptionPriceContext,
@@ -32,6 +35,7 @@ import {
 
 	CommentContextType,
 	DialogFlagsContextType,
+	DialogNotificationSettingsContextType,
 	GroupMemberContextType,
 	GroupUpdateContextType,
 	GroupUserContextType,
@@ -56,6 +60,7 @@ import {
 
 	CommentContextSubType,
 	DialogFlagsContextSubType,
+	DialogNotificationSettingsContextSubType,
 	GroupMemberContextSubType,
 	GroupUpdateContextSubType,
 	GroupUserContextSubType,
@@ -77,14 +82,21 @@ import {
 	DonutSubscriptionContextSubType,
 	DonutSubscriptionPriceContextSubType,
 	DonutWithdrawContextSubType
-} from '../structures/contexts';
+} from '../structures';
 
 import { API } from '../api';
 import { Upload } from '../upload';
-import { Composer } from '../structures/shared/composer';
-import { PollingTransport, WebhookTransport, IWebhookTransportStartOptions } from './transports';
 
-import { APIErrorCode } from '../errors';
+import {
+	PollingTransport,
+
+	WebhookTransport,
+	WebhookTransportCallback,
+	WebhookTransportKoaCallback,
+	IWebhookTransportStartOptions
+} from './transports';
+
+import { APIError, APIErrorCode } from '../errors';
 
 import { UpdateSource } from '../utils/constants';
 import { AllowArray, Constructor } from '../types';
@@ -203,7 +215,7 @@ const pollingContextsEvents: [number[], Constructor<any>][] = [
 		MessageFlagsContext
 	],
 	[
-		[4, 5],
+		[4, 5, 18],
 		MessageContext
 	],
 	[
@@ -211,7 +223,7 @@ const pollingContextsEvents: [number[], Constructor<any>][] = [
 		MessagesReadContext
 	],
 	[
-		[8, 9],
+		[8, 9, 81],
 		FriendActivityContext
 	],
 	[
@@ -223,8 +235,12 @@ const pollingContextsEvents: [number[], Constructor<any>][] = [
 		DialogMessagesContext
 	],
 	[
-		[63, 64],
+		[63, 64, 65, 66, 67],
 		TypingContext
+	],
+	[
+		[114],
+		DialogNotificationSettingsContext
 	]
 ];
 
@@ -248,6 +264,7 @@ const pollingContexts = makeContexts(pollingContextsEvents);
 export type ContextTypes =
 CommentContextType
 | DialogFlagsContextType
+| DialogNotificationSettingsContextType
 | GroupMemberContextType
 | GroupUpdateContextType
 | GroupUserContextType
@@ -272,6 +289,7 @@ CommentContextType
 export type ContextSubTypes =
 CommentContextSubType
 | DialogFlagsContextSubType
+| DialogNotificationSettingsContextSubType
 | GroupMemberContextSubType
 | GroupUpdateContextSubType
 | GroupUserContextSubType
@@ -432,6 +450,12 @@ export class Updates {
 	public on<T = {}>(
 		events: AllowArray<DialogFlagsContextType | DialogFlagsContextSubType>,
 		handler: AllowArray<Middleware<DialogFlagsContext & T>>
+	): this;
+
+	public on<T = {}>(
+		// eslint-disable-next-line max-len
+		events: AllowArray<DialogNotificationSettingsContextType | DialogNotificationSettingsContextSubType>,
+		handler: AllowArray<Middleware<DialogNotificationSettingsContext & T>>
 	): this;
 
 	public on<T = {}>(
@@ -672,7 +696,7 @@ export class Updates {
 
 				this.options.pollingGroupId = group.id!;
 			} catch (error) {
-				if (error.code !== APIErrorCode.PARAM) {
+				if ((error as APIError).code !== APIErrorCode.PARAM) {
 					throw error;
 				}
 
@@ -696,14 +720,14 @@ export class Updates {
 	/**
 	 * Returns webhook callback like http[s] or express
 	 */
-	public getWebhookCallback(path?: string): Function {
+	public getWebhookCallback(path?: string): WebhookTransportCallback {
 		return this.webhookTransport.getWebhookCallback(path);
 	}
 
 	/**
 	 * Returns the middleware for the webhook under koa
 	 */
-	public getKoaWebhookMiddleware(): Function {
+	public getKoaWebhookMiddleware(): WebhookTransportKoaCallback {
 		return this.webhookTransport.getKoaWebhookMiddleware();
 	}
 

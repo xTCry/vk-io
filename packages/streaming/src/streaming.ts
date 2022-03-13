@@ -1,5 +1,4 @@
 import WebSocket from 'ws';
-import fetch from 'node-fetch';
 import createDebug from 'debug';
 import { inspectable } from 'inspectable';
 
@@ -8,6 +7,7 @@ import { API, Updates, UpdateSource } from 'vk-io';
 import { Agent, globalAgent } from 'https';
 import { URL, URLSearchParams } from 'url';
 
+import { fetch } from './fetch';
 import { StreamingRuleError } from './errors';
 import { StreamingContext, IStreamingContextPayload } from './contexts';
 
@@ -79,7 +79,7 @@ export class StreamingAPI {
 			this.key = key!;
 			this.endpoint = new URL(`https://${endpoint}`);
 
-			const search = new URLSearchParams({ key });
+			const search = new URLSearchParams({ key: key! });
 
 			const { agent } = this.options;
 
@@ -201,7 +201,8 @@ export class StreamingAPI {
 			}
 		});
 
-		const result = await response.json();
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const result = await response.json() as any;
 
 		if (result.error !== undefined) {
 			throw new StreamingRuleError(result.error);

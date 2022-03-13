@@ -1,6 +1,6 @@
 {
 	"name": "@vk-io/scenes",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "Scenes for the library vk-io",
 	"license": "MIT",
 	"author": {
@@ -25,11 +25,17 @@
 		"lib",
 		"typings"
 	],
-	"main": "lib/index",
-	"module": "lib/index.mjs",
+	"main": "./lib/index.js",
 	"types": "./lib/index.d.ts",
+	"exports": {
+		".": {
+			"import": "./lib/index.mjs",
+			"require": "./lib/index.js"
+		}
+	},
+	"sideEffects": false,
 	"engines": {
-		"node": ">=12.0.0"
+		"node": ">=12.20.0"
 	},
 	"peerDependencies": {
 		"vk-io": "^4.0.0"
